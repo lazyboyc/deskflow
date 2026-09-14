@@ -126,7 +126,10 @@ InputFilter::Condition *InputFilter::GestureCondition::clone() const
 std::string InputFilter::GestureCondition::format() const
 {
   static const char *s_button[] = {"none", "left", "middle", "right", "extra0", "extra1"};
-  static const char *s_direction[] = {"left", "right", "up", "down", "upleft", "upright", "downleft", "downright"};
+  static const char *s_direction[] = {
+      "left",     "right",     "up",         "down",        "upleft",     "upright",
+      "downleft", "downright", "scrollup",   "scrolldown",  "scrollleft", "scrollright"
+  };
 
   return deskflow::string::sprintf(
       "gesture(%s,%s)", s_button[m_button], s_direction[static_cast<int>(m_direction)]

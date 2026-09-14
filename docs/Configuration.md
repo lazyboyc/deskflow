@@ -382,7 +382,7 @@ end
 |screenSaverSync| `true` or `false`| ''Note: Removed in v1.14.1'' If set to ''false'' then Deskflow won't synchronize screen savers. Client screen savers will start according to their individual configurations. The server screen saver won't start if there is input, even if that input is directed toward a client computer.|
 |keystroke(key) | actions | Binds the ''key'' combination key to the given ''actions''. ''key'' is an optional list of modifiers (''shift'', ''control'', ''alt'', ''meta'' or ''super'') optionally followed by a character or a key name, all separated by + (plus signs). You must have either modifiers or a character/key name or both. See below for `valid key names` and `actions`. Keyboard hot keys are handled while the cursor any computer. Separate actions can be assigned to press and release.|
 |mousebutton(button) | actions| Binds the modifier and mouse button combination ''button'' to the given ''actions''. ''button'' is an optional list of modifiers (''shift'', ''control'', ''alt'', ''meta'' or ''super'') followed by a button number. The primary button (the left button for right handed users) is button 1, the middle button is 2, etc. Actions can be found below. Mouse button actions are not handled while the cursor is on the server. You cannot use these to perform an action while on the server. Separate actions can be assigned to press and release.|
-|gesture(button,direction) | actions| Binds a mouse gesture to the given ''actions''. ''button'' is ''left'', ''middle'' or ''right''; ''direction'' is ''left'', ''right'', ''up'', ''down'', ''upleft'', ''upright'', ''downleft'' or ''downright''. The gesture fires when the button is released after the pointer has been dragged at least 40 pixels in the given direction. Only the dominant axis is considered, so a diagonal drag counts as whichever axis moved further. Gesture actions are not handled while the cursor is on the server. Actions can be found below.|
+|gesture(button,direction) | actions| Binds a mouse gesture to the given ''actions''. ''button'' is ''left'', ''middle'' or ''right''. ''direction'' is either one of the drag directions ''left'', ''right'', ''up'', ''down'', ''upleft'', ''upright'', ''downleft'', ''downright'', or one of the wheel directions ''scrollup'', ''scrolldown'', ''scrollleft'', ''scrollright''. A drag gesture fires when the button is released after the pointer has been dragged at least 40 pixels in the given direction; only the dominant axis is considered, so a diagonal drag counts as whichever axis moved further. A wheel gesture fires as soon as the wheel is moved while the button is held. Gesture actions are not handled while the cursor is on the server. Actions can be found below.|
 
 A gesture is recognized by Deskflow itself, so it needs no third-party gesture utility.
 
@@ -399,8 +399,12 @@ section: options
 	gesture(right,left) = switchToScreen(mac)
 	gesture(right,right) = switchToScreen(pc)
 	gesture(right,up) = lockCursorToScreen(toggle)
+	gesture(right,scrollup) = keystroke(control+shift+tab,*)
+	gesture(right,scrolldown) = keystroke(control+tab,*)
 end
 ```
+
+Wheel gestures are recognized while the gesture button is held, so `gesture(right,scrollup)` fires when the wheel is rolled away from you with the right button down. A single notch arrives as a burst of events, momentum included, so Deskflow ignores the rest of the burst and fires only once per notch. A wheel movement that matches a binding is consumed, so the active screen does not also scroll.
 
 Only the primary screen implementation is expected to support gestures; platforms that do not use the default implementation and simply never fire the bound action.
 

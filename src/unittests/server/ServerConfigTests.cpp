@@ -161,4 +161,18 @@ void ServerConfigTests::equalityCheck_diff_neighbours3()
   QVERIFY(a != b);
 }
 
+void ServerConfigTests::gestureCondition_format_usesConfigNames()
+{
+  // format() is the inverse of the names parseCondition() accepts, so this pins
+  // the config vocabulary for both drag and wheel gestures.
+  InputFilter::GestureCondition drag(nullptr, kButtonRight, GestureDirection::DownLeft);
+  QCOMPARE(QString::fromStdString(drag.format()), QStringLiteral("gesture(right,downleft)"));
+
+  InputFilter::GestureCondition scroll(nullptr, kButtonRight, GestureDirection::ScrollUp);
+  QCOMPARE(QString::fromStdString(scroll.format()), QStringLiteral("gesture(right,scrollup)"));
+
+  InputFilter::GestureCondition wheel(nullptr, kButtonMiddle, GestureDirection::ScrollRight);
+  QCOMPARE(QString::fromStdString(wheel.format()), QStringLiteral("gesture(middle,scrollright)"));
+}
+
 QTEST_MAIN(ServerConfigTests)

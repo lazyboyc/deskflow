@@ -124,7 +124,8 @@ private:
   // event, false if it is a mouseup event.  macButton is the index
   // of the button pressed using the mac button mapping.
   bool onMouseButton(bool pressed, uint16_t macButton);
-  bool onMouseWheel(int32_t xDelta, int32_t yDelta) const;
+  //! Wheel movement. Returns true when a gesture consumed it.
+  bool onMouseWheel(int32_t xDelta, int32_t yDelta);
 
   void constructMouseButtonEventMap();
 
@@ -187,9 +188,11 @@ private:
   };
 
   bool hasGestureOnButton(ButtonID button) const;
+  uint32_t findGesture(ButtonID button, GestureDirection direction) const;
   bool beginGesture(ButtonID button);
   void resetGesture();
   void accumulateGesture(int32_t dx, int32_t dy);
+  bool handleGestureScroll(int32_t xDelta, int32_t yDelta);
   GestureOutcome finishGesture(ButtonID button);
   void deliverHeldClick(ButtonID button);
 
@@ -342,6 +345,8 @@ private:
   // as a hot key down event carrying the id.
   static constexpr int32_t kGestureThreshold = 40;
   static constexpr uint32_t kGestureIdBase = 0x40000000u;
+  //! One physical wheel notch arrives as a burst of events, momentum included.
+  static constexpr double kScrollGestureDebounce = 0.15;
 
   std::map<uint32_t, GestureBinding> m_gestures;
   uint32_t m_nextGestureId = kGestureIdBase;
@@ -349,6 +354,8 @@ private:
   int32_t m_gestureX = 0;
   int32_t m_gestureY = 0;
   bool m_gestureArmed = false;
+  bool m_gestureScrollFired = false;
+  double m_lastScrollGestureTime = 0.0;
   KeyModifierMask m_gesturePressMask = 0;
   CGEventFlags m_gesturePressFlags = 0;
 

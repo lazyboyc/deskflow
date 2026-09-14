@@ -13,8 +13,9 @@
 
 //! Direction of a mouse gesture
 /*!
-The direction the pointer has to be dragged, while the gesture's mouse button
-is held down, for the gesture to be recognized.
+The first eight values are the directions the pointer has to be dragged, while
+the gesture's mouse button is held down, for the gesture to be recognized. The
+remaining four are wheel movements performed while that button is held.
 */
 enum class GestureDirection
 {
@@ -25,7 +26,11 @@ enum class GestureDirection
   UpLeft,
   UpRight,
   DownLeft,
-  DownRight
+  DownRight,
+  ScrollUp,
+  ScrollDown,
+  ScrollLeft,
+  ScrollRight
 };
 
 //! Primary screen interface

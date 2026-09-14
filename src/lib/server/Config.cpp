@@ -489,7 +489,8 @@ void Config::readSectionOptions(ConfigReadContext &s)
     if (line == "end") {
       return;
     } else if (const auto l = QString::fromStdString(line).simplified();
-               !l.startsWith(QStringLiteral("keystroke")) && !l.startsWith(QStringLiteral("mousepress"))) {
+               !l.startsWith(QStringLiteral("keystroke")) && !l.startsWith(QStringLiteral("mousepress")) &&
+               !l.startsWith(QStringLiteral("gesture"))) {
       continue;
     }
 
@@ -755,10 +756,12 @@ Config::parseCondition(const ConfigReadContext &s, const std::string &name, cons
       const char *name;
       GestureDirection direction;
     } s_directions[] = {
-        {"left", GestureDirection::Left},         {"right", GestureDirection::Right},
-        {"up", GestureDirection::Up},             {"down", GestureDirection::Down},
-        {"upleft", GestureDirection::UpLeft},     {"upright", GestureDirection::UpRight},
-        {"downleft", GestureDirection::DownLeft}, {"downright", GestureDirection::DownRight},
+        {"left", GestureDirection::Left},             {"right", GestureDirection::Right},
+        {"up", GestureDirection::Up},                 {"down", GestureDirection::Down},
+        {"upleft", GestureDirection::UpLeft},         {"upright", GestureDirection::UpRight},
+        {"downleft", GestureDirection::DownLeft},     {"downright", GestureDirection::DownRight},
+        {"scrollup", GestureDirection::ScrollUp},     {"scrolldown", GestureDirection::ScrollDown},
+        {"scrollleft", GestureDirection::ScrollLeft}, {"scrollright", GestureDirection::ScrollRight},
     };
 
     GestureDirection direction = GestureDirection::Left;

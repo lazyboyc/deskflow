@@ -1243,6 +1243,53 @@ void OSXScreen::resetGesture()
   m_gestureX = 0;
   m_gestureY = 0;
   m_gestureArmed = false;
+  m_gestureScrollFired = false;
+}
+
+uint32_t OSXScreen::findGesture(ButtonID button, GestureDirection direction) const
+{
+  for (const auto &[id, binding] : m_gestures) {
+    if (binding.m_button == button && binding.m_direction == direction) {
+      return id;
+    }
+  }
+  return 0;
+}
+
+bool OSXScreen::handleGestureScroll(int32_t xDelta, int32_t yDelta)
+{
+  if (m_activeGestureButton == kButtonNone || (xDelta == 0 && yDelta == 0)) {
+    return false;
+  }
+
+  GestureDirection direction;
+  if (gestureAbs(yDelta) >= gestureAbs(xDelta)) {
+    direction = (yDelta > 0) ? GestureDirection::ScrollUp : GestureDirection::ScrollDown;
+  } else {
+    direction = (xDelta > 0) ? GestureDirection::ScrollRight : GestureDirection::ScrollLeft;
+  }
+
+  const uint32_t id = findGesture(m_activeGestureButton, direction);
+  if (id == 0) {
+    return false;
+  }
+
+  // A single notch arrives as a burst of events, so ignore the rest of the
+  // burst and any momentum that follows it.
+  const double now = Arch::time();
+  if (now - m_lastScrollGestureTime < kScrollGestureDebounce) {
+    return true;
+  }
+  m_lastScrollGestureTime = now;
+
+  // The press belonged to a scroll gesture, so do not replay it as a click.
+  m_gestureScrollFired = true;
+
+  LOG_DEBUG(
+      "scroll gesture recognised button=%d direction=%d", m_activeGestureButton, static_cast<int>(direction)
+  );
+  m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
+  return true;
 }
 
 void OSXScreen::accumulateGesture(int32_t dx, int32_t dy)
@@ -1268,11 +1315,18 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
   }
 
   const bool armed = m_gestureArmed;
+  const bool scrollFired = m_gestureScrollFired;
   const int32_t x = m_gestureX;
   const int32_t y = m_gestureY;
   const ButtonID gestureButton = m_activeGestureButton;
 
   resetGesture();
+
+  if (scrollFired) {
+    // Wheel movements already ran a gesture for this press, so the press is not
+    // a click and must not be replayed.
+    return GestureOutcome::Fired;
+  }
 
   if (!armed) {
     return GestureOutcome::Click;
@@ -1286,14 +1340,12 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
     direction = (y >= 0) ? GestureDirection::Down : GestureDirection::Up;
   }
 
-  for (const auto &[id, binding] : m_gestures) {
-    if (binding.m_button == gestureButton && binding.m_direction == direction) {
-      LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(direction));
-      // Delivered as a hot key down event so the gesture can be bound to the
-      // same actions as a hot key.
-      m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
-      return GestureOutcome::Fired;
-    }
+  if (const uint32_t id = findGesture(gestureButton, direction); id != 0) {
+    LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(direction));
+    // Delivered as a hot key down event so the gesture can be bound to the same
+    // actions as a hot key.
+    m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
+    return GestureOutcome::Fired;
   }
 
   // The pointer travelled far enough to be a gesture, but no binding matches the
@@ -1341,11 +1393,18 @@ void OSXScreen::deliverHeldClick(ButtonID button)
   LOG_VERBOSE("replayed held click for button=%d", button);
 }
 
-bool OSXScreen::onMouseWheel(int32_t xDelta, int32_t yDelta) const
+bool OSXScreen::onMouseWheel(int32_t xDelta, int32_t yDelta)
 {
   LOG_VERBOSE("event: button wheel delta=%+d,%+d", xDelta, yDelta);
+
+  if (handleGestureScroll(xDelta, yDelta)) {
+    // The wheel movement completed a gesture, so the active screen must not
+    // also scroll.
+    return true;
+  }
+
   sendEvent(EventTypes::PrimaryScreenWheel, WheelInfo::alloc(xDelta, yDelta));
-  return true;
+  return false;
 }
 
 void OSXScreen::displayReconfigurationCallback(
@@ -2004,10 +2063,13 @@ CGEventRef OSXScreen::handleCGInputEvent(CGEventTapProxy proxy, CGEventType type
     screen->onMouseMove(event);
     break;
   case kCGEventScrollWheel:
-    screen->onMouseWheel(
-        screen->mapScrollWheelToDeskflow(CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis2)),
-        screen->mapScrollWheelToDeskflow(CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis1))
-    );
+    if (screen->onMouseWheel(
+            screen->mapScrollWheelToDeskflow(CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis2)),
+            screen->mapScrollWheelToDeskflow(CGEventGetIntegerValueField(event, kCGScrollWheelEventDeltaAxis1))
+        )) {
+      // Consumed by a gesture.
+      return nullptr;
+    }
     break;
   case kCGEventKeyDown:
   case kCGEventKeyUp:
