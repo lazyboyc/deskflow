@@ -1086,25 +1086,46 @@ bool OSXScreen::onMouseButton(bool pressed, uint16_t macButton)
 
   if (pressed) {
     LOG_VERBOSE("event: button press button=%d", button);
-    beginGesture(button);
+
+    if (beginGesture(button)) {
+      // A gesture button was pressed. Hold the press back: the active screen
+      // must not see it until we know whether the user is gesturing or merely
+      // clicking, otherwise every gesture would also deliver a click.
+      return true;
+    }
+
     if (button != kButtonNone) {
       KeyModifierMask mask = m_keyState->getActiveModifiers();
       sendEvent(EventTypes::PrimaryScreenButtonDown, ButtonInfo::alloc(button, mask));
     }
-  } else {
-    LOG_VERBOSE("event: button release button=%d", button);
-    // When the press turned out to be a gesture, swallow the release so the
-    // active screen does not treat it as a click.
-    if (finishGesture(button)) {
-      return true;
-    }
-    if (button != kButtonNone) {
-      KeyModifierMask mask = m_keyState->getActiveModifiers();
-      sendEvent(EventTypes::PrimaryScreenButtonUp, ButtonInfo::alloc(button, mask));
-    }
+
+    return false;
   }
 
-  return true;
+  LOG_VERBOSE("event: button release button=%d", button);
+
+  switch (finishGesture(button)) {
+  case GestureOutcome::Fired:
+    // The drag was a gesture. The press was held back, so the release must not
+    // reach the active screen either.
+    return true;
+
+  case GestureOutcome::Click:
+    // The press was held back but the user only clicked, so deliver the click
+    // that the active screen never saw.
+    deliverHeldClick(button);
+    return true;
+
+  case GestureOutcome::None:
+    break;
+  }
+
+  if (button != kButtonNone) {
+    KeyModifierMask mask = m_keyState->getActiveModifiers();
+    sendEvent(EventTypes::PrimaryScreenButtonUp, ButtonInfo::alloc(button, mask));
+  }
+
+  return false;
 }
 
 namespace
@@ -1112,6 +1133,52 @@ namespace
 int32_t gestureAbs(int32_t value)
 {
   return value < 0 ? -value : value;
+}
+
+//! Marks the synthetic clicks posted to replay a held-back press, so the event
+//! tap can tell them apart from real input and let them through untouched.
+constexpr int64_t kGestureReplayTag = 0x0D35F10A;
+
+CGEventType gestureDownEvent(ButtonID button)
+{
+  switch (button) {
+  case kButtonRight:
+    return kCGEventRightMouseDown;
+
+  case kButtonMiddle:
+    return kCGEventOtherMouseDown;
+
+  default:
+    return kCGEventLeftMouseDown;
+  }
+}
+
+CGEventType gestureUpEvent(ButtonID button)
+{
+  switch (button) {
+  case kButtonRight:
+    return kCGEventRightMouseUp;
+
+  case kButtonMiddle:
+    return kCGEventOtherMouseUp;
+
+  default:
+    return kCGEventLeftMouseUp;
+  }
+}
+
+CGMouseButton gestureMacButton(ButtonID button)
+{
+  switch (button) {
+  case kButtonRight:
+    return kCGMouseButtonRight;
+
+  case kButtonMiddle:
+    return kCGMouseButtonCenter;
+
+  default:
+    return kCGMouseButtonLeft;
+  }
 }
 } // namespace
 
@@ -1152,16 +1219,22 @@ void OSXScreen::unregisterGesture(uint32_t id)
   }
 }
 
-void OSXScreen::beginGesture(ButtonID button)
+bool OSXScreen::beginGesture(ButtonID button)
 {
   resetGesture();
 
   if (button == kButtonNone || !hasGestureOnButton(button)) {
-    return;
+    return false;
   }
 
   m_activeGestureButton = button;
+  // Remember the state at press time so a replayed click carries the modifiers
+  // that were held when the user actually pressed the button.
+  m_gesturePressMask = m_keyState->getActiveModifiers();
+  m_gesturePressFlags = m_keyState->getModifierStateAsOSXFlags();
+
   LOG_VERBOSE("gesture tracking started on button=%d", button);
+  return true;
 }
 
 void OSXScreen::resetGesture()
@@ -1188,10 +1261,10 @@ void OSXScreen::accumulateGesture(int32_t dx, int32_t dy)
   }
 }
 
-bool OSXScreen::finishGesture(ButtonID button)
+OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
 {
   if (button == kButtonNone || button != m_activeGestureButton) {
-    return false;
+    return GestureOutcome::None;
   }
 
   const bool armed = m_gestureArmed;
@@ -1202,7 +1275,7 @@ bool OSXScreen::finishGesture(ButtonID button)
   resetGesture();
 
   if (!armed) {
-    return false;
+    return GestureOutcome::Click;
   }
 
   // The dominant axis wins; ties fall back to the horizontal axis.
@@ -1219,11 +1292,53 @@ bool OSXScreen::finishGesture(ButtonID button)
       // Delivered as a hot key down event so the gesture can be bound to the
       // same actions as a hot key.
       m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
-      return true;
+      return GestureOutcome::Fired;
     }
   }
 
-  return false;
+  // The pointer travelled far enough to be a gesture, but no binding matches the
+  // direction, so fall back to delivering the click. A plain button drag cannot
+  // be replayed and is therefore lost, which is the price of holding the press
+  // until the intent is known.
+  LOG_VERBOSE("no gesture bound to button=%d direction=%d", gestureButton, static_cast<int>(direction));
+  return GestureOutcome::Click;
+}
+
+void OSXScreen::deliverHeldClick(ButtonID button)
+{
+  if (button == kButtonNone) {
+    return;
+  }
+
+  if (!m_isOnScreen) {
+    // The active screen is a client. Hand it the press and the release back to
+    // back, which is what it would have received without gesture handling.
+    sendEvent(EventTypes::PrimaryScreenButtonDown, ButtonInfo::alloc(button, m_gesturePressMask));
+    sendEvent(EventTypes::PrimaryScreenButtonUp, ButtonInfo::alloc(button, m_gesturePressMask));
+    return;
+  }
+
+  // The cursor is on this screen, so the local application never saw the press.
+  // Post the whole click as synthetic input; the tap recognises the tag and lets
+  // these events through untouched.
+  CGEventRef posEvent = CGEventCreate(nullptr);
+  const CGPoint pos = CGEventGetLocation(posEvent);
+  CFRelease(posEvent);
+
+  const CGEventType types[] = {gestureDownEvent(button), gestureUpEvent(button)};
+  for (CGEventType type : types) {
+    CGEventRef click = CGEventCreateMouseEvent(nullptr, type, pos, gestureMacButton(button));
+    if (click == nullptr) {
+      continue;
+    }
+
+    CGEventSetIntegerValueField(click, kCGEventSourceUserData, kGestureReplayTag);
+    CGEventSetFlags(click, m_gesturePressFlags);
+    CGEventPost(kCGHIDEventTap, click);
+    CFRelease(click);
+  }
+
+  LOG_VERBOSE("replayed held click for button=%d", button);
 }
 
 bool OSXScreen::onMouseWheel(int32_t xDelta, int32_t yDelta) const
@@ -1857,16 +1972,28 @@ CGEventRef OSXScreen::handleCGInputEvent(CGEventTapProxy proxy, CGEventType type
 {
   OSXScreen *screen = (OSXScreen *)refcon;
 
+  // Synthetic clicks posted to replay a held-back press must pass through
+  // untouched, otherwise they would be held back a second time.
+  if (CGEventGetIntegerValueField(event, kCGEventSourceUserData) == kGestureReplayTag) {
+    return event;
+  }
+
   switch (type) {
   case kCGEventLeftMouseDown:
   case kCGEventRightMouseDown:
   case kCGEventOtherMouseDown:
-    screen->onMouseButton(true, CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber) + 1);
+    if (screen->onMouseButton(true, CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber) + 1)) {
+      // Held back until we know whether this press is a gesture.
+      return nullptr;
+    }
     break;
   case kCGEventLeftMouseUp:
   case kCGEventRightMouseUp:
   case kCGEventOtherMouseUp:
-    screen->onMouseButton(false, CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber) + 1);
+    if (screen->onMouseButton(false, CGEventGetIntegerValueField(event, kCGMouseEventButtonNumber) + 1)) {
+      // Consumed as a gesture, or already replayed as a synthetic click.
+      return nullptr;
+    }
     break;
   case kCGEventLeftMouseDragged:
   case kCGEventRightMouseDragged:

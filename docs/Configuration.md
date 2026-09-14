@@ -384,7 +384,15 @@ end
 |mousebutton(button) | actions| Binds the modifier and mouse button combination ''button'' to the given ''actions''. ''button'' is an optional list of modifiers (''shift'', ''control'', ''alt'', ''meta'' or ''super'') followed by a button number. The primary button (the left button for right handed users) is button 1, the middle button is 2, etc. Actions can be found below. Mouse button actions are not handled while the cursor is on the server. You cannot use these to perform an action while on the server. Separate actions can be assigned to press and release.|
 |gesture(button,direction) | actions| Binds a mouse gesture to the given ''actions''. ''button'' is ''left'', ''middle'' or ''right''; ''direction'' is ''left'', ''right'', ''up'', ''down'', ''upleft'', ''upright'', ''downleft'' or ''downright''. The gesture fires when the button is released after the pointer has been dragged at least 40 pixels in the given direction. Only the dominant axis is considered, so a diagonal drag counts as whichever axis moved further. Gesture actions are not handled while the cursor is on the server. Actions can be found below.|
 
-A gesture is recognized by Deskflow itself, so it needs no third-party gesture utility. Holding the button and dragging does not perform the gesture's action until the button is released, which keeps a plain click on that button working normally.
+A gesture is recognized by Deskflow itself, so it needs no third-party gesture utility.
+
+Binding a gesture to a button changes how a press of that button is delivered. The press is held back until the intent is known, so that a gesture never also delivers a click:
+
+* released before the pointer travels 40 pixels - the press and the release are delivered as an ordinary click;
+* released after travelling at least 40 pixels in a bound direction - the gesture's actions run and the click is suppressed;
+* released after travelling at least 40 pixels in a direction with no binding - the click is delivered instead.
+
+Because the press is held back, a plain button drag on that button is not replayed and is lost. Only bind gestures to a button whose drag behaviour you do not rely on.
 
 ```
 section: options

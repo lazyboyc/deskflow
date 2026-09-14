@@ -178,11 +178,20 @@ private:
     GestureDirection m_direction;
   };
 
+  //! What became of a press on a gesture button
+  enum class GestureOutcome
+  {
+    None,  //!< the button has no gestures bound
+    Click, //!< the press was held back but the user only clicked
+    Fired  //!< a gesture was recognized
+  };
+
   bool hasGestureOnButton(ButtonID button) const;
-  void beginGesture(ButtonID button);
+  bool beginGesture(ButtonID button);
   void resetGesture();
   void accumulateGesture(int32_t dx, int32_t dy);
-  bool finishGesture(ButtonID button);
+  GestureOutcome finishGesture(ButtonID button);
+  void deliverHeldClick(ButtonID button);
 
   // Quartz event tap support
   void installEventTap();
@@ -340,6 +349,8 @@ private:
   int32_t m_gestureX = 0;
   int32_t m_gestureY = 0;
   bool m_gestureArmed = false;
+  KeyModifierMask m_gesturePressMask = 0;
+  CGEventFlags m_gesturePressFlags = 0;
 
   // for double click coalescing.
   double m_lastClickTime;
