@@ -18,6 +18,7 @@
 #include <mach/mach_interface.h>
 #include <mach/mach_port.h>
 
+#include <atomic>
 #include <bitset>
 #include <map>
 #include <memory>
@@ -165,6 +166,10 @@ private:
   static bool getGlobalHotKeysEnabled();
 
   // Quartz event tap support
+  void installEventTap();
+  void teardownEventTap();
+  void rearmEventTap();
+
   static CGEventRef handleCGInputEvent(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon);
   static CGEventRef
   handleCGInputEventSecondary(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon);
@@ -302,6 +307,7 @@ private:
   CFRunLoopSourceRef m_eventTapRLSR;
   std::thread m_eventTapThread;
   CFRunLoopRef m_eventTapRunLoop = nullptr;
+  std::atomic_bool m_eventTapRearming = false;
 
   // for double click coalescing.
   double m_lastClickTime;

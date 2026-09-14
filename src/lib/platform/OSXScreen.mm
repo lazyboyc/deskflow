@@ -700,12 +700,6 @@ void OSXScreen::enable()
 
   if (m_isPrimary) {
     // FIXME -- start watching jump zones
-
-    // kCGEventTapOptionDefault = 0x00000000 (Missing in 10.4, so specified literally)
-    m_eventTapPort = CGEventTapCreate(
-        kCGHIDEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, kCGEventMaskForAllEvents, handleCGInputEvent,
-        this
-    );
   } else {
     // FIXME -- prevent system from entering power save mode
 
@@ -713,39 +707,100 @@ void OSXScreen::enable()
 
     // warp the mouse to the cursor center
     fakeMouseMove(m_xCenter, m_yCenter);
-
-    // there may be a better way to do this, but we register an event handler even if we're
-    // not on the primary display (acting as a client). This way, if a local event comes in
-    // (either keyboard or mouse), we can make sure to show the cursor if we've hidden it.
-    m_eventTapPort = CGEventTapCreate(
-        kCGHIDEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, kCGEventMaskForAllEvents,
-        handleCGInputEventSecondary, this
-    );
   }
 
-  if (m_eventTapPort) {
-    m_eventTapRLSR = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, m_eventTapPort, 0);
-    if (m_eventTapRLSR) {
-      // Run the event tap on a dedicated thread with its own CFRunLoop so it fires
-      // independently of whatever event loop the calling thread runs (e.g. QCoreApplication).
-      // Use a semaphore to ensure m_eventTapRunLoop is set before enable() returns.
-      auto sem = dispatch_semaphore_create(0);
-      m_eventTapThread = std::thread([this, sem]() {
-        m_eventTapRunLoop = CFRunLoopGetCurrent();
-        CFRunLoopAddSource(m_eventTapRunLoop, m_eventTapRLSR, kCFRunLoopDefaultMode);
-        dispatch_semaphore_signal(sem);
-        CFRunLoopRun();
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), m_eventTapRLSR, kCFRunLoopDefaultMode);
-        m_eventTapRunLoop = nullptr;
-      });
-      dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
-      dispatch_release(sem);
-    } else {
-      LOG_ERR("failed to create a CFRunLoopSourceRef for the quartz event tap");
-    }
-  } else {
+  // there may be a better way to do this, but we register an event handler even if we're
+  // not on the primary display (acting as a client). This way, if a local event comes in
+  // (either keyboard or mouse), we can make sure to show the cursor if we've hidden it.
+  installEventTap();
+}
+
+void OSXScreen::installEventTap()
+{
+  // kCGEventTapOptionDefault = 0x00000000 (Missing in 10.4, so specified literally)
+  //
+  // kCGHeadInsertEventTap puts the new tap ahead of every tap already registered
+  // at kCGHIDEventTap, so a tap created later observes events earlier. CoreGraphics
+  // exposes no absolute priority: tap location plus creation time is the only lever.
+  const CGEventTapCallBack callback = m_isPrimary ? handleCGInputEvent : handleCGInputEventSecondary;
+
+  m_eventTapPort = CGEventTapCreate(
+      kCGHIDEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, kCGEventMaskForAllEvents, callback, this
+  );
+
+  if (m_eventTapPort == nullptr) {
     LOG_ERR("failed to create quartz event tap");
+    return;
   }
+
+  m_eventTapRLSR = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, m_eventTapPort, 0);
+  if (m_eventTapRLSR == nullptr) {
+    LOG_ERR("failed to create a CFRunLoopSourceRef for the quartz event tap");
+    CFRelease(m_eventTapPort);
+    m_eventTapPort = nullptr;
+    return;
+  }
+
+  // Run the event tap on a dedicated thread with its own CFRunLoop so it fires
+  // independently of whatever event loop the calling thread runs (e.g. QCoreApplication).
+  // Use a semaphore to ensure m_eventTapRunLoop is set before this returns.
+  // Capture the source locally so a concurrent teardownEventTap() cannot swap it
+  // out from under this thread while it is winding down.
+  CFRunLoopSourceRef rlsr = m_eventTapRLSR;
+  auto sem = dispatch_semaphore_create(0);
+  m_eventTapThread = std::thread([this, sem, rlsr]() {
+    CFRunLoopRef runLoop = CFRunLoopGetCurrent();
+    m_eventTapRunLoop = runLoop;
+    CFRunLoopAddSource(runLoop, rlsr, kCFRunLoopDefaultMode);
+    dispatch_semaphore_signal(sem);
+    CFRunLoopRun();
+    CFRunLoopRemoveSource(runLoop, rlsr, kCFRunLoopDefaultMode);
+    m_eventTapRunLoop = nullptr;
+  });
+  dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+  dispatch_release(sem);
+}
+
+void OSXScreen::teardownEventTap()
+{
+  // Stop the run loop first, then join. Joining guarantees the tap thread has
+  // already removed the source from its run loop, so the release below cannot
+  // race with a thread that is still executing.
+  if (m_eventTapRunLoop != nullptr) {
+    CFRunLoopStop(m_eventTapRunLoop);
+  }
+  if (m_eventTapThread.joinable()) {
+    m_eventTapThread.join();
+  }
+
+  if (m_eventTapRLSR != nullptr) {
+    CFRelease(m_eventTapRLSR);
+    m_eventTapRLSR = nullptr;
+  }
+
+  if (m_eventTapPort != nullptr) {
+    CGEventTapEnable(m_eventTapPort, false);
+    CFMachPortInvalidate(m_eventTapPort);
+    CFRelease(m_eventTapPort);
+    m_eventTapPort = nullptr;
+  }
+}
+
+void OSXScreen::rearmEventTap()
+{
+  // Only the primary screen owns the tap whose position in the HID chain matters.
+  if (!m_isPrimary || m_eventTapRearming.exchange(true)) {
+    return;
+  }
+
+  // Run off the event tap thread: teardownEventTap() joins that thread, and this
+  // can be reached from inside the tap callback (onMouseMove -> switchScreen ->
+  // leave()), so joining inline would deadlock.
+  std::thread([this]() {
+    teardownEventTap();
+    installEventTap();
+    m_eventTapRearming = false;
+  }).detach();
 }
 
 void OSXScreen::disable()
@@ -754,24 +809,8 @@ void OSXScreen::disable()
 
   // FIXME -- stop watching jump zones, stop capturing input
 
-  if (m_eventTapRunLoop) {
-    CFRunLoopStop(m_eventTapRunLoop);
-  }
-  if (m_eventTapThread.joinable()) {
-    m_eventTapThread.join();
-  }
+  teardownEventTap();
 
-  if (m_eventTapRLSR) {
-    CFRelease(m_eventTapRLSR);
-    m_eventTapRLSR = nullptr;
-  }
-
-  if (m_eventTapPort) {
-    CGEventTapEnable(m_eventTapPort, false);
-    CFMachPortInvalidate(m_eventTapPort);
-    CFRelease(m_eventTapPort);
-    m_eventTapPort = nullptr;
-  }
   // FIXME -- allow system to enter power saving mode
 
   if (m_clipboardTimer != nullptr) {
@@ -831,6 +870,13 @@ void OSXScreen::leave()
     // a client (onMouseMove reads raw deltas instead). must follow hideCursor(),
     // which re-associates. re-coupled in enter()/disable().
     CGAssociateMouseAndMouseCursorPosition(false);
+
+    // Another process may have registered its own HID-level event tap after ours
+    // (mouse-gesture utilities do exactly that). Head insertion means the newest
+    // tap runs first, so such a tap can swallow events before we ever see them.
+    // Re-registering here restores our position at the front of the chain for as
+    // long as the cursor stays on a client, which is when suppression matters.
+    rearmEventTap();
   }
 
   // now off screen
