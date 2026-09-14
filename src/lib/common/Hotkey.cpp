@@ -12,8 +12,39 @@
 
 QString Hotkey::text() const
 {
+  if (m_trigger == Trigger::Gesture) {
+    return kGesture.arg(m_gestureButton, m_gestureDirection);
+  }
+
   return m_keySequence.isMouseButton() ? kMousebutton.arg(m_keySequence.toString())
                                        : kKeystroke.arg(m_keySequence.toString());
+}
+
+const QStringList &Hotkey::gestureButtonNames()
+{
+  static const QStringList s_names = {QStringLiteral("left"), QStringLiteral("middle"), QStringLiteral("right")};
+  return s_names;
+}
+
+const QStringList &Hotkey::gestureDirectionNames()
+{
+  static const QStringList s_names = {
+      QStringLiteral("left"),       QStringLiteral("right"),      QStringLiteral("up"),          QStringLiteral("down"),
+      QStringLiteral("upleft"),     QStringLiteral("upright"),    QStringLiteral("downleft"),    QStringLiteral("downright"),
+      QStringLiteral("scrollup"),   QStringLiteral("scrolldown"), QStringLiteral("scrollleft"), QStringLiteral("scrollright")
+  };
+  return s_names;
+}
+
+void Hotkey::setGesture(const QString &button, const QString &direction)
+{
+  if (!gestureButtonNames().contains(button) || !gestureDirectionNames().contains(direction)) {
+    return;
+  }
+
+  m_gestureButton = button;
+  m_gestureDirection = direction;
+  m_trigger = Trigger::Gesture;
 }
 
 Action &Hotkey::actionAt(int index)
@@ -39,6 +70,10 @@ void Hotkey::loadSettings(QSettings &settings)
 {
   m_keySequence.loadSettings(settings);
 
+  m_trigger = static_cast<Trigger>(settings.value(kTrigger, static_cast<int>(Trigger::KeySequence)).toInt());
+  m_gestureButton = settings.value(kGestureButton, m_gestureButton).toString();
+  m_gestureDirection = settings.value(kGestureDirection, m_gestureDirection).toString();
+
   m_actions.clear();
   int num = settings.beginReadArray(kSectionActions);
   for (int i = 0; i < num; i++) {
@@ -55,6 +90,10 @@ void Hotkey::saveSettings(QSettings &settings) const
 {
   m_keySequence.saveSettings(settings);
 
+  settings.setValue(kTrigger, static_cast<int>(m_trigger));
+  settings.setValue(kGestureButton, m_gestureButton);
+  settings.setValue(kGestureDirection, m_gestureDirection);
+
   settings.beginWriteArray(kSectionActions);
   for (int i = 0; i < m_actions.size(); i++) {
     settings.setArrayIndex(i);
@@ -65,7 +104,8 @@ void Hotkey::saveSettings(QSettings &settings) const
 
 bool Hotkey::operator==(const Hotkey &hk) const
 {
-  return m_keySequence == hk.keySequence() && m_actions == hk.actions();
+  return m_trigger == hk.trigger() && m_keySequence == hk.keySequence() && m_gestureButton == hk.gestureButton() &&
+         m_gestureDirection == hk.gestureDirection() && m_actions == hk.actions();
 }
 
 QTextStream &operator<<(QTextStream &outStream, const Hotkey &hotkey)

@@ -32,6 +32,8 @@ public:
 
 protected Q_SLOTS:
   void accept() override;
+  //! Shows the widgets that belong to the selected trigger
+  void toggleTrigger();
 
 protected:
   const KeySequenceWidget *sequenceWidget() const;

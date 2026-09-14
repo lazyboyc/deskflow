@@ -10,6 +10,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 #include <QTextStream>
 
 #include "common/Action.h"
@@ -22,9 +23,26 @@ class QSettings;
 class Hotkey
 {
 public:
+  //! What triggers this binding
+  enum class Trigger
+  {
+    KeySequence, //!< a key combination, written as keystroke(...)
+    Gesture      //!< a mouse gesture, written as gesture(button,direction)
+  };
+
   Hotkey() = default;
 
   QString text() const;
+
+  Trigger trigger() const
+  {
+    return m_trigger;
+  }
+  void setTrigger(Trigger trigger)
+  {
+    m_trigger = trigger;
+  }
+
   const KeySequence &keySequence() const
   {
     return m_keySequence;
@@ -33,6 +51,25 @@ public:
   {
     m_keySequence = seq;
   }
+
+  const QString &gestureButton() const
+  {
+    return m_gestureButton;
+  }
+  const QString &gestureDirection() const
+  {
+    return m_gestureDirection;
+  }
+  //! Selects a gesture and switches the trigger to Trigger::Gesture. Unknown
+  //! names are ignored so a hand edited settings file cannot produce a rule the
+  //! server would reject.
+  void setGesture(const QString &button, const QString &direction);
+
+  //! Names accepted by the server for the button part of gesture(...)
+  static const QStringList &gestureButtonNames();
+  //! Names accepted by the server for the direction part of gesture(...)
+  static const QStringList &gestureDirectionNames();
+
   const ActionList &actions() const
   {
     return m_actions;
@@ -48,11 +85,18 @@ public:
   bool operator==(const Hotkey &hk) const;
 
 private:
+  Trigger m_trigger = Trigger::KeySequence;
   KeySequence m_keySequence = {};
+  QString m_gestureButton = QStringLiteral("right");
+  QString m_gestureDirection = QStringLiteral("left");
   ActionList m_actions = {};
   inline static const QString kSectionActions = QStringLiteral("actions");
   inline static const QString kMousebutton = QStringLiteral("mousebutton(%1)");
   inline static const QString kKeystroke = QStringLiteral("keystroke(%1)");
+  inline static const QString kGesture = QStringLiteral("gesture(%1,%2)");
+  inline static const QString kTrigger = QStringLiteral("trigger");
+  inline static const QString kGestureButton = QStringLiteral("gestureButton");
+  inline static const QString kGestureDirection = QStringLiteral("gestureDirection");
 };
 
 using HotkeyList = QList<Hotkey>;

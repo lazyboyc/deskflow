@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>344</width>
-    <height>86</height>
+    <width>392</width>
+    <height>168</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,7 +22,55 @@
     </widget>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="triggerRow">
+     <item>
+      <widget class="QLabel" name="labelTrigger">
+       <property name="text">
+        <string>Trigger:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_pTriggerType"/>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="KeySequenceWidget" name="m_pKeySequenceWidgetHotkey"/>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="gestureRow">
+     <item>
+      <widget class="QLabel" name="labelGestureButton">
+       <property name="text">
+        <string>Button:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_pGestureButton"/>
+     </item>
+     <item>
+      <widget class="QLabel" name="labelGestureDirection">
+       <property name="text">
+        <string>Direction:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_pGestureDirection"/>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QLabel" name="labelGestureHint">
+     <property name="text">
+      <string>Drag directions fire on release; scroll directions fire while the button is held.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
