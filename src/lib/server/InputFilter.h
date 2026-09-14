@@ -72,6 +72,30 @@ public:
     IEventQueue *m_events;
   };
 
+  // GestureCondition
+  class GestureCondition : public Condition
+  {
+  public:
+    GestureCondition(IEventQueue *events, ButtonID button, GestureDirection direction);
+    ~GestureCondition() override = default;
+
+    ButtonID getButton() const;
+    GestureDirection getDirection() const;
+
+    // Condition overrides
+    Condition *clone() const override;
+    std::string format() const override;
+    FilterStatus match(const Event &) override;
+    void enablePrimary(PrimaryClient *) override;
+    void disablePrimary(PrimaryClient *) override;
+
+  private:
+    uint32_t m_id = 0;
+    ButtonID m_button;
+    GestureDirection m_direction;
+    IEventQueue *m_events;
+  };
+
   // MouseButtonCondition
   class MouseButtonCondition : public Condition
   {

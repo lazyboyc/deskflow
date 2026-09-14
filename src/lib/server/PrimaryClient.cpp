@@ -35,6 +35,16 @@ void PrimaryClient::unregisterHotKey(uint32_t id)
   m_screen->unregisterHotKey(id);
 }
 
+uint32_t PrimaryClient::registerGesture(ButtonID button, GestureDirection direction)
+{
+  return m_screen->registerGesture(button, direction);
+}
+
+void PrimaryClient::unregisterGesture(uint32_t id)
+{
+  m_screen->unregisterGesture(id);
+}
+
 void PrimaryClient::fakeInputBegin()
 {
   if (++m_fakeInputCount == 1) {

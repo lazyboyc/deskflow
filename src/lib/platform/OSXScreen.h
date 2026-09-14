@@ -66,6 +66,12 @@ public:
   void warpCursor(int32_t x, int32_t y) override;
   uint32_t registerHotKey(KeyID key, KeyModifierMask mask) override;
   void unregisterHotKey(uint32_t id) override;
+
+  //! @name mouse gestures
+  //@{
+  uint32_t registerGesture(ButtonID button, GestureDirection direction) override;
+  void unregisterGesture(uint32_t id) override;
+  //@}
   void fakeInputBegin() override;
   void fakeInputEnd() override;
   int32_t getJumpZoneSize() const override;
@@ -164,6 +170,19 @@ private:
   static bool isGlobalHotKeyOperatingModeAvailable();
   static void setGlobalHotKeysEnabled(bool enabled);
   static bool getGlobalHotKeysEnabled();
+
+  // mouse gesture recognition
+  struct GestureBinding
+  {
+    ButtonID m_button;
+    GestureDirection m_direction;
+  };
+
+  bool hasGestureOnButton(ButtonID button) const;
+  void beginGesture(ButtonID button);
+  void resetGesture();
+  void accumulateGesture(int32_t dx, int32_t dy);
+  bool finishGesture(ButtonID button);
 
   // Quartz event tap support
   void installEventTap();
@@ -308,6 +327,19 @@ private:
   std::thread m_eventTapThread;
   CFRunLoopRef m_eventTapRunLoop = nullptr;
   std::atomic_bool m_eventTapRearming = false;
+
+  // mouse gesture state. Gesture ids are handed out from a range well above the
+  // sequential ids used for hot keys, because both are delivered to the server
+  // as a hot key down event carrying the id.
+  static constexpr int32_t kGestureThreshold = 40;
+  static constexpr uint32_t kGestureIdBase = 0x40000000u;
+
+  std::map<uint32_t, GestureBinding> m_gestures;
+  uint32_t m_nextGestureId = kGestureIdBase;
+  ButtonID m_activeGestureButton = kButtonNone;
+  int32_t m_gestureX = 0;
+  int32_t m_gestureY = 0;
+  bool m_gestureArmed = false;
 
   // for double click coalescing.
   double m_lastClickTime;

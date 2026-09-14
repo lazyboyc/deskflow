@@ -1058,6 +1058,8 @@ bool OSXScreen::onMouseMove(CGEventRef event)
     m_xCursor = (int32_t)mx;
     m_yCursor = (int32_t)my;
 
+    accumulateGesture((int32_t)x, (int32_t)y);
+
     sendEvent(EventTypes::PrimaryScreenMotionOnPrimary, MotionInfo::alloc(m_xCursor, m_yCursor));
   } else {
     // motion on secondary screen.  the cursor is frozen (see leave()), so read
@@ -1066,6 +1068,8 @@ bool OSXScreen::onMouseMove(CGEventRef event)
     int32_t dy = (int32_t)CGEventGetIntegerValueField(event, kCGMouseEventDeltaY);
 
     LOG_VERBOSE("mouse delta %+d,%+d", dx, dy);
+
+    accumulateGesture(dx, dy);
 
     if (dx != 0 || dy != 0) {
       sendEvent(EventTypes::PrimaryScreenMotionOnSecondary, MotionInfo::alloc(dx, dy));
@@ -1082,12 +1086,18 @@ bool OSXScreen::onMouseButton(bool pressed, uint16_t macButton)
 
   if (pressed) {
     LOG_VERBOSE("event: button press button=%d", button);
+    beginGesture(button);
     if (button != kButtonNone) {
       KeyModifierMask mask = m_keyState->getActiveModifiers();
       sendEvent(EventTypes::PrimaryScreenButtonDown, ButtonInfo::alloc(button, mask));
     }
   } else {
     LOG_VERBOSE("event: button release button=%d", button);
+    // When the press turned out to be a gesture, swallow the release so the
+    // active screen does not treat it as a click.
+    if (finishGesture(button)) {
+      return true;
+    }
     if (button != kButtonNone) {
       KeyModifierMask mask = m_keyState->getActiveModifiers();
       sendEvent(EventTypes::PrimaryScreenButtonUp, ButtonInfo::alloc(button, mask));
@@ -1095,6 +1105,125 @@ bool OSXScreen::onMouseButton(bool pressed, uint16_t macButton)
   }
 
   return true;
+}
+
+namespace
+{
+int32_t gestureAbs(int32_t value)
+{
+  return value < 0 ? -value : value;
+}
+} // namespace
+
+bool OSXScreen::hasGestureOnButton(ButtonID button) const
+{
+  for (const auto &entry : m_gestures) {
+    if (entry.second.m_button == button) {
+      return true;
+    }
+  }
+  return false;
+}
+
+uint32_t OSXScreen::registerGesture(ButtonID button, GestureDirection direction)
+{
+  if (button == kButtonNone) {
+    return 0;
+  }
+
+  const uint32_t id = m_nextGestureId++;
+  m_gestures[id] = {button, direction};
+
+  LOG_DEBUG("registered gesture button=%d direction=%d as id=%u", button, static_cast<int>(direction), id);
+  return id;
+}
+
+void OSXScreen::unregisterGesture(uint32_t id)
+{
+  if (m_gestures.erase(id) == 0) {
+    return;
+  }
+
+  LOG_DEBUG("unregistered gesture id=%u", id);
+
+  // Do not keep tracking a button whose gestures are all gone.
+  if (m_activeGestureButton != kButtonNone && !hasGestureOnButton(m_activeGestureButton)) {
+    resetGesture();
+  }
+}
+
+void OSXScreen::beginGesture(ButtonID button)
+{
+  resetGesture();
+
+  if (button == kButtonNone || !hasGestureOnButton(button)) {
+    return;
+  }
+
+  m_activeGestureButton = button;
+  LOG_VERBOSE("gesture tracking started on button=%d", button);
+}
+
+void OSXScreen::resetGesture()
+{
+  m_activeGestureButton = kButtonNone;
+  m_gestureX = 0;
+  m_gestureY = 0;
+  m_gestureArmed = false;
+}
+
+void OSXScreen::accumulateGesture(int32_t dx, int32_t dy)
+{
+  if (m_activeGestureButton == kButtonNone) {
+    return;
+  }
+
+  m_gestureX += dx;
+  m_gestureY += dy;
+
+  if (!m_gestureArmed &&
+      (gestureAbs(m_gestureX) >= kGestureThreshold || gestureAbs(m_gestureY) >= kGestureThreshold)) {
+    m_gestureArmed = true;
+    LOG_VERBOSE("gesture armed after dragging %+d,%+d", m_gestureX, m_gestureY);
+  }
+}
+
+bool OSXScreen::finishGesture(ButtonID button)
+{
+  if (button == kButtonNone || button != m_activeGestureButton) {
+    return false;
+  }
+
+  const bool armed = m_gestureArmed;
+  const int32_t x = m_gestureX;
+  const int32_t y = m_gestureY;
+  const ButtonID gestureButton = m_activeGestureButton;
+
+  resetGesture();
+
+  if (!armed) {
+    return false;
+  }
+
+  // The dominant axis wins; ties fall back to the horizontal axis.
+  GestureDirection direction;
+  if (gestureAbs(x) >= gestureAbs(y)) {
+    direction = (x >= 0) ? GestureDirection::Right : GestureDirection::Left;
+  } else {
+    direction = (y >= 0) ? GestureDirection::Down : GestureDirection::Up;
+  }
+
+  for (const auto &[id, binding] : m_gestures) {
+    if (binding.m_button == gestureButton && binding.m_direction == direction) {
+      LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(direction));
+      // Delivered as a hot key down event so the gesture can be bound to the
+      // same actions as a hot key.
+      m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool OSXScreen::onMouseWheel(int32_t xDelta, int32_t yDelta) const

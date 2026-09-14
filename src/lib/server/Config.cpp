@@ -734,6 +734,49 @@ Config::parseCondition(const ConfigReadContext &s, const std::string &name, cons
     return new InputFilter::MouseButtonCondition(m_events, mouseInfo);
   }
 
+  if (name == "gesture") {
+    if (args.size() != 2) {
+      throw ServerConfigReadException(s, "syntax for condition: gesture(button,direction)");
+    }
+
+    ButtonID button = kButtonNone;
+    if (args[0] == "left") {
+      button = kButtonLeft;
+    } else if (args[0] == "middle") {
+      button = kButtonMiddle;
+    } else if (args[0] == "right") {
+      button = kButtonRight;
+    } else {
+      throw ServerConfigReadException(s, "unknown mouse button \"%{1}\" in gesture", args[0]);
+    }
+
+    static const struct
+    {
+      const char *name;
+      GestureDirection direction;
+    } s_directions[] = {
+        {"left", GestureDirection::Left},         {"right", GestureDirection::Right},
+        {"up", GestureDirection::Up},             {"down", GestureDirection::Down},
+        {"upleft", GestureDirection::UpLeft},     {"upright", GestureDirection::UpRight},
+        {"downleft", GestureDirection::DownLeft}, {"downright", GestureDirection::DownRight},
+    };
+
+    GestureDirection direction = GestureDirection::Left;
+    bool known = false;
+    for (const auto &entry : s_directions) {
+      if (args[1] == entry.name) {
+        direction = entry.direction;
+        known = true;
+        break;
+      }
+    }
+    if (!known) {
+      throw ServerConfigReadException(s, "unknown gesture direction \"%{1}\"", args[1]);
+    }
+
+    return new InputFilter::GestureCondition(m_events, button, direction);
+  }
+
   if (name == "connect") {
     if (args.size() != 1) {
       throw ServerConfigReadException(s, "syntax for condition: connect([screen])");

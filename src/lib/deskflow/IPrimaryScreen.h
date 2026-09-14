@@ -11,6 +11,23 @@
 #include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
 
+//! Direction of a mouse gesture
+/*!
+The direction the pointer has to be dragged, while the gesture's mouse button
+is held down, for the gesture to be recognized.
+*/
+enum class GestureDirection
+{
+  Left,
+  Right,
+  Up,
+  Down,
+  UpLeft,
+  UpRight,
+  DownLeft,
+  DownRight
+};
+
 //! Primary screen interface
 /*!
 This interface defines the methods common to all platform dependent
@@ -130,6 +147,31 @@ public:
   Unregisters a previously registered hot key.
   */
   virtual void unregisterHotKey(uint32_t id) = 0;
+
+  //! Register a mouse gesture
+  /*!
+  Registers a gesture triggered by holding mouse button \p button and dragging
+  the pointer in \p direction.  When the gesture is recognized the screen posts
+  a \c PrimaryScreenHotkeyDown event carrying the returned id, so a gesture can
+  be bound to the same actions as a hot key.  Returns 0 on failure, otherwise an
+  id that can be used to unregister the gesture.
+
+  Platforms without gesture support keep the default implementation and simply
+  never fire the bound action.
+  */
+  virtual uint32_t registerGesture(ButtonID, GestureDirection)
+  {
+    return 0;
+  }
+
+  //! Unregister a mouse gesture
+  /*!
+  Unregisters a previously registered gesture.
+  */
+  virtual void unregisterGesture(uint32_t)
+  {
+    // do nothing
+  }
 
   //! Prepare to synthesize input on primary screen
   /*!

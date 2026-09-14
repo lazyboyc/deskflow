@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "deskflow/IPrimaryScreen.h"
 #include "server/BaseClientProxy.h"
 
 namespace deskflow {
@@ -49,6 +50,19 @@ public:
   Unregisters a previously registered hot key.
   */
   virtual void unregisterHotKey(uint32_t id);
+
+  //! Register a mouse gesture
+  /*!
+  Registers a gesture for mouse button \p button dragged in \p direction.
+  Returns an id used to unregister the gesture.
+  */
+  virtual uint32_t registerGesture(ButtonID button, GestureDirection direction);
+
+  //! Unregister a mouse gesture
+  /*!
+  Unregisters a previously registered gesture.
+  */
+  virtual void unregisterGesture(uint32_t id);
 
   //! Prepare to synthesize input on primary screen
   /*!

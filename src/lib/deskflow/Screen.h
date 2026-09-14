@@ -8,6 +8,7 @@
 #pragma once
 
 #include "deskflow/ClipboardTypes.h"
+#include "deskflow/IPrimaryScreen.h"
 #include "deskflow/IScreen.h"
 #include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
@@ -195,6 +196,19 @@ public:
   Unregisters a previously registered hot key.
   */
   void unregisterHotKey(uint32_t id);
+
+  //! Register a mouse gesture
+  /*!
+  Registers a gesture for mouse button \p button dragged in \p direction.
+  Returns an id used to unregister the gesture.
+  */
+  uint32_t registerGesture(ButtonID button, GestureDirection direction);
+
+  //! Unregister a mouse gesture
+  /*!
+  Unregisters a previously registered gesture.
+  */
+  void unregisterGesture(uint32_t id);
 
   //! Prepare to synthesize input on primary screen
   /*!

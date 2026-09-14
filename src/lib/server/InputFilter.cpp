@@ -100,6 +100,67 @@ void InputFilter::KeystrokeCondition::disablePrimary(PrimaryClient *primary)
   m_id = 0;
 }
 
+InputFilter::GestureCondition::GestureCondition(IEventQueue *events, ButtonID button, GestureDirection direction)
+    : m_button(button),
+      m_direction(direction),
+      m_events(events)
+{
+  // do nothing
+}
+
+ButtonID InputFilter::GestureCondition::getButton() const
+{
+  return m_button;
+}
+
+GestureDirection InputFilter::GestureCondition::getDirection() const
+{
+  return m_direction;
+}
+
+InputFilter::Condition *InputFilter::GestureCondition::clone() const
+{
+  return new GestureCondition(m_events, m_button, m_direction);
+}
+
+std::string InputFilter::GestureCondition::format() const
+{
+  static const char *s_button[] = {"none", "left", "middle", "right", "extra0", "extra1"};
+  static const char *s_direction[] = {"left", "right", "up", "down", "upleft", "upright", "downleft", "downright"};
+
+  return deskflow::string::sprintf(
+      "gesture(%s,%s)", s_button[m_button], s_direction[static_cast<int>(m_direction)]
+  );
+}
+
+InputFilter::FilterStatus InputFilter::GestureCondition::match(const Event &event)
+{
+  using enum FilterStatus;
+
+  // A recognized gesture is posted as a hot key down event carrying its id, so
+  // it can be bound to the same actions as a hot key.
+  if (event.getType() != EventTypes::PrimaryScreenHotkeyDown) {
+    return NoMatch;
+  }
+
+  if (const auto *kinfo = static_cast<IPlatformScreen::HotKeyInfo *>(event.getData()); kinfo->m_id != m_id) {
+    return NoMatch;
+  }
+
+  return Activate;
+}
+
+void InputFilter::GestureCondition::enablePrimary(PrimaryClient *primary)
+{
+  m_id = primary->registerGesture(m_button, m_direction);
+}
+
+void InputFilter::GestureCondition::disablePrimary(PrimaryClient *primary)
+{
+  primary->unregisterGesture(m_id);
+  m_id = 0;
+}
+
 InputFilter::MouseButtonCondition::MouseButtonCondition(IEventQueue *events, const IPlatformScreen::ButtonInfo &info)
     : m_button(info.m_button),
       m_mask(info.m_mask),
