@@ -176,6 +176,28 @@ QString KeySequence::keyToString(int key)
   }
 
   // modifiers?
+  //
+  // The names below are the tokens of the server config language, whose meaning
+  // follows the physical key: ctrl = Control, alt = Option, super = Command.
+  //
+  // On Apple platforms Qt remaps Command to Qt::ControlModifier and Control to
+  // Qt::MetaModifier (unless AA_MacDontSwapCtrlAndMeta is set, which Deskflow
+  // does not do), so the Qt bits have to be translated back. Without this a
+  // recorded Command combination was written as "Control" and ended up bound to
+  // the Control key, and a recorded Control combination was written as "Meta".
+#ifdef Q_OS_MACOS
+  if (key & Qt::ShiftModifier)
+    return "Shift";
+
+  if (key & Qt::ControlModifier)
+    return "Super";
+
+  if (key & Qt::AltModifier)
+    return "Alt";
+
+  if (key & Qt::MetaModifier)
+    return "Control";
+#else
   if (key & Qt::ShiftModifier)
     return "Shift";
 
@@ -187,6 +209,7 @@ QString KeySequence::keyToString(int key)
 
   if (key & Qt::MetaModifier)
     return "Meta";
+#endif
 
   // treat key pad like normal keys (FIXME: we should have another lookup table
   // for keypad keys instead)

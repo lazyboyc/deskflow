@@ -874,11 +874,21 @@ bool OSXKeyState::mapDeskflowHotKeyToMac(
   if ((mask & KeyModifierControl) != 0) {
     macModifierMask |= controlKey;
   }
+  // Must be the inverse of mapModifiersFromOSX(), which reports Option as
+  // KeyModifierAlt and Command as KeyModifierSuper. Mapping Alt to Command here
+  // (as this used to) registered a completely different key than the one the
+  // user recorded, and KeyModifierMeta was dropped silently, producing a hotkey
+  // that could never fire.
   if ((mask & KeyModifierAlt) != 0) {
-    macModifierMask |= cmdKey;
+    macModifierMask |= optionKey;
   }
   if ((mask & KeyModifierSuper) != 0) {
-    macModifierMask |= optionKey;
+    macModifierMask |= cmdKey;
+  }
+  // macOS has no distinct Meta key. Meta is an alias for the OS key on every
+  // other platform Deskflow supports, so treat it as Super here.
+  if ((mask & KeyModifierMeta) != 0) {
+    macModifierMask |= cmdKey;
   }
   if ((mask & KeyModifierCapsLock) != 0) {
     macModifierMask |= alphaLock;
