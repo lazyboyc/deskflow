@@ -18,8 +18,16 @@ using namespace deskflow::gui;
 
 void LoggerTests::initTestCase()
 {
+  // Settings builds its paths on first use and prefers the developer's real
+  // config, and anything written there is locked through QSettings. Nothing has
+  // constructed it yet, so redirect it first; reading the current path is what
+  // constructs the singleton, which is why Settings::setSettingsFile() alone
+  // would be too late. Settings only reads these variables on non-Windows
+  // platforms, so the explicit redirect below stays as the fallback there.
   QDir dir;
   QVERIFY(dir.mkpath(m_settingsPath));
+  qputenv("XDG_CONFIG_HOME", QDir::current().filePath(m_settingsPath).toUtf8());
+  qputenv("XDG_STATE_HOME", QDir::current().filePath(m_settingsPath).toUtf8());
 
   QFile oldSettings(m_settingsFile);
   if (oldSettings.exists())

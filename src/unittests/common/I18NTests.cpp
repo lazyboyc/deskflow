@@ -14,6 +14,17 @@
 
 void I18NTests::initTestCase()
 {
+  // Settings builds its paths on first use and prefers the developer's real
+  // config, and anything written there is locked through QSettings. Nothing has
+  // constructed it yet, so redirect it first; reading the current path is what
+  // constructs the singleton, which is why Settings::setSettingsFile() alone
+  // would be too late. Settings only reads these variables on non-Windows
+  // platforms, so the explicit redirect below stays as the fallback there.
+  const QString tempDir = QDir::current().filePath(m_settingsPathTemp);
+  QVERIFY(QDir().mkpath(tempDir));
+  qputenv("XDG_CONFIG_HOME", tempDir.toUtf8());
+  qputenv("XDG_STATE_HOME", tempDir.toUtf8());
+
   QFile oldSettings(m_settingsFile);
   if (oldSettings.exists())
     oldSettings.remove();

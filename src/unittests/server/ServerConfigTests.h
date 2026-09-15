@@ -20,4 +20,9 @@ private Q_SLOTS:
   void equalityCheck_diff_neighbours2();
   void equalityCheck_diff_neighbours3();
   void gestureCondition_format_usesConfigNames();
+
+private:
+  inline static const QString m_settingsPathTemp = QStringLiteral("tmp/test");
+  inline static const QString m_settingsFile = QStringLiteral("%1/Deskflow.conf").arg(m_settingsPathTemp);
+  inline static const QString m_stateFile = QStringLiteral("%1/Deskflow.state").arg(m_settingsPathTemp);
 };
