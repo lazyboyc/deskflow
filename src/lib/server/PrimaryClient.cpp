@@ -149,14 +149,14 @@ void PrimaryClient::setClipboardDirty(ClipboardID id, bool dirty)
   m_clipboardDirty[id] = dirty;
 }
 
-void PrimaryClient::keyDown(KeyID key, KeyModifierMask mask, KeyButton button, const std::string &)
+void PrimaryClient::keyDown(KeyID key, KeyModifierMask mask, KeyButton button, const std::string &lang)
 {
+  // Only synthesize while the caller has bracketed the input with
+  // fakeInputBegin()/fakeInputEnd(). That bracket is what keeps the synthesized
+  // press from being captured by this screen's own event tap and forwarded on
+  // to a client a second time.
   if (m_fakeInputCount > 0) {
-    // XXX -- don't forward keystrokes to primary screen for now
-    (void)key;
-    (void)mask;
-    (void)button;
-    //        m_screen->keyDown(key, mask, button);
+    m_screen->keyDown(key, mask, button, lang);
   }
 }
 
@@ -168,11 +168,7 @@ void PrimaryClient::keyRepeat(KeyID, KeyModifierMask, int32_t, KeyButton, const 
 void PrimaryClient::keyUp(KeyID key, KeyModifierMask mask, KeyButton button)
 {
   if (m_fakeInputCount > 0) {
-    // XXX -- don't forward keystrokes to primary screen for now
-    (void)key;
-    (void)mask;
-    (void)button;
-    //        m_screen->keyUp(key, mask, button);
+    m_screen->keyUp(key, mask, button);
   }
 }
 

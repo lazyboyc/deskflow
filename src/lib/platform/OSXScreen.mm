@@ -290,12 +290,14 @@ void OSXScreen::warpCursor(int32_t x, int32_t y)
 
 void OSXScreen::fakeInputBegin()
 {
-  // FIXME -- not implemented
+  ++m_fakeInputCount;
 }
 
 void OSXScreen::fakeInputEnd()
 {
-  // FIXME -- not implemented
+  if (m_fakeInputCount > 0) {
+    --m_fakeInputCount;
+  }
 }
 
 int32_t OSXScreen::getJumpZoneSize() const
@@ -2041,6 +2043,13 @@ OSXScreen::handleCGInputEventSecondary(CGEventTapProxy proxy, CGEventType type, 
 CGEventRef OSXScreen::handleCGInputEvent(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon)
 {
   OSXScreen *screen = (OSXScreen *)refcon;
+
+  // While input is being synthesized on this screen, let events through instead
+  // of forwarding them. The events we just posted would otherwise be captured
+  // again and sent on to a client, delivering every keystroke twice.
+  if (screen->m_fakeInputCount > 0) {
+    return event;
+  }
 
   // Synthetic clicks posted to replay a held-back press must pass through
   // untouched, otherwise they would be held back a second time.

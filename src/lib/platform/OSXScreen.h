@@ -341,6 +341,13 @@ private:
   CFRunLoopRef m_eventTapRunLoop = nullptr;
   std::atomic_bool m_eventTapRearming = false;
 
+  // Counts nested fake-input regions. While it is non-zero the event tap passes
+  // events straight through instead of forwarding them, so input Deskflow
+  // synthesizes on this screen (a keystroke() action that names the primary)
+  // takes effect locally without being captured again and sent on to a client.
+  // Written from the event queue thread and read from the tap thread.
+  std::atomic_int m_fakeInputCount = 0;
+
   // mouse gesture state. Gesture ids are handed out from a range well above the
   // sequential ids used for hot keys, because both are delivered to the server
   // as a hot key down event carrying the id.
