@@ -9,6 +9,26 @@
 
 #include "server/Config.h"
 
+#include <QDir>
+
+void ServerConfigTests::initTestCase()
+{
+  // Config reads the Settings singleton, and Settings builds its paths on first
+  // use, preferring the developer's real config. Anything written there goes
+  // through QSettings, which takes a QLockFile lock beside it, so a test run
+  // would touch - and lock - the real config.
+  //
+  // Settings honours XDG_CONFIG_HOME and XDG_STATE_HOME while building those
+  // paths and nothing has constructed it yet here, so pointing them at a
+  // throwaway directory keeps the real config untouched. Note that calling
+  // Settings::setSettingsFile() instead would be too late: reading the current
+  // path is what constructs the singleton in the first place.
+  const QString tempDir = QDir::current().filePath(QStringLiteral("tmp/test"));
+  QDir().mkpath(tempDir);
+  qputenv("XDG_CONFIG_HOME", tempDir.toUtf8());
+  qputenv("XDG_STATE_HOME", tempDir.toUtf8());
+}
+
 class OnlySystemFilter : public InputFilter::Condition
 {
 public:
