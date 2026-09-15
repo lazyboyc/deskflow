@@ -189,6 +189,7 @@ private:
 
   bool hasGestureOnButton(ButtonID button) const;
   uint32_t findGesture(ButtonID button, GestureDirection direction) const;
+  void fireGesture(uint32_t id);
   bool beginGesture(ButtonID button);
   void resetGesture();
   void accumulateGesture(int32_t dx, int32_t dy);

@@ -404,7 +404,13 @@ section: options
 end
 ```
 
-Wheel gestures are recognized while the gesture button is held, so `gesture(right,scrollup)` fires when the wheel is rolled away from you with the right button down. A single notch arrives as a burst of events, momentum included, so Deskflow ignores the rest of the burst and fires only once per notch. A wheel movement that matches a binding is consumed, so the active screen does not also scroll.
+Wheel gestures are recognized while the gesture button is held.
+
+The wheel direction names describe the direction the *content* scrolls, not the direction the wheel is turned. `scrollup` fires when the view scrolls up, which on a system with "natural scrolling" enabled (the macOS default) means rolling the wheel *towards* you. Turning natural scrolling off inverts the relationship, so if a wheel gesture fires for the wrong direction, swap `scrollup` and `scrolldown`.
+
+A single notch arrives as a burst of events, momentum included, so Deskflow ignores the rest of the burst and fires only once per notch. A wheel movement that matches a binding is consumed, so the active screen does not also scroll.
+
+A gesture is delivered as a key press immediately followed by its release, which is what lets a `keystroke` action press and lift its keys in one go.
 
 Only the primary screen implementation is expected to support gestures; platforms that do not use the default implementation and simply never fire the bound action.
 

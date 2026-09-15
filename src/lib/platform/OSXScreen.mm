@@ -1246,6 +1246,17 @@ void OSXScreen::resetGesture()
   m_gestureScrollFired = false;
 }
 
+void OSXScreen::fireGesture(uint32_t id)
+{
+  // A gesture is instantaneous, so it is delivered as a hot key press followed
+  // immediately by the matching release. The release is not optional: it runs
+  // the actions bound to the hot key's release, and it is what lifts the keys a
+  // keystroke() action pressed. Without it those keys stay down on the active
+  // screen after a single gesture.
+  m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
+  m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyUp, getEventTarget(), HotKeyInfo::alloc(id)));
+}
+
 uint32_t OSXScreen::findGesture(ButtonID button, GestureDirection direction) const
 {
   for (const auto &[id, binding] : m_gestures) {
@@ -1288,7 +1299,7 @@ bool OSXScreen::handleGestureScroll(int32_t xDelta, int32_t yDelta)
   LOG_DEBUG(
       "scroll gesture recognised button=%d direction=%d", m_activeGestureButton, static_cast<int>(direction)
   );
-  m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
+  fireGesture(id);
   return true;
 }
 
@@ -1342,9 +1353,9 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
 
   if (const uint32_t id = findGesture(gestureButton, direction); id != 0) {
     LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(direction));
-    // Delivered as a hot key down event so the gesture can be bound to the same
-    // actions as a hot key.
-    m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyDown, getEventTarget(), HotKeyInfo::alloc(id)));
+    // Delivered as a hot key press/release pair so the gesture can be bound to
+    // the same actions as a hot key.
+    fireGesture(id);
     return GestureOutcome::Fired;
   }
 

@@ -139,10 +139,18 @@ std::string InputFilter::GestureCondition::format() const
 InputFilter::FilterStatus InputFilter::GestureCondition::match(const Event &event)
 {
   using enum FilterStatus;
+  FilterStatus status;
 
-  // A recognized gesture is posted as a hot key down event carrying its id, so
-  // it can be bound to the same actions as a hot key.
-  if (event.getType() != EventTypes::PrimaryScreenHotkeyDown) {
+  // A recognized gesture is posted as a hot key press followed immediately by
+  // the matching release, both carrying the gesture's id, so it can be bound to
+  // the same actions as a hot key. Handling the release matters: it is what runs
+  // the actions bound to the hot key's release, and without it a keystroke()
+  // action would press its keys and never lift them again.
+  if (EventTypes type = event.getType(); type == EventTypes::PrimaryScreenHotkeyDown) {
+    status = Activate;
+  } else if (type == EventTypes::PrimaryScreenHotkeyUp) {
+    status = Deactivate;
+  } else {
     return NoMatch;
   }
 
@@ -150,7 +158,7 @@ InputFilter::FilterStatus InputFilter::GestureCondition::match(const Event &even
     return NoMatch;
   }
 
-  return Activate;
+  return status;
 }
 
 void InputFilter::GestureCondition::enablePrimary(PrimaryClient *primary)
