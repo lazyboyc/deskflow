@@ -1233,7 +1233,11 @@ bool OSXScreen::beginGesture(ButtonID button)
 {
   resetGesture();
 
-  if (button == kButtonNone || !hasGestureOnButton(button)) {
+  // Gestures are only recognized while the cursor is on this screen. Off-screen
+  // the press is forwarded straight through, which leaves the active screen's
+  // own gesture tool working; holding it back there would hand that tool motion
+  // with no button held, so it could never recognize a gesture of its own.
+  if (!m_isOnScreen || button == kButtonNone || !hasGestureOnButton(button)) {
     return false;
   }
 

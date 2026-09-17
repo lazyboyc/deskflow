@@ -404,6 +404,8 @@ section: options
 end
 ```
 
+A gesture is only recognized while the cursor is on the screen running the server. Off that screen the gesture button is forwarded untouched, so a gesture tool on the active computer keeps working - the two cannot share a button at the same time, because recognizing a gesture means holding the press back until the intent is known.
+
 Wheel gestures are recognized while the gesture button is held.
 
 The wheel direction names describe the direction the *content* scrolls, not the direction the wheel is turned. `scrollup` fires when the view scrolls up, which on a system with "natural scrolling" enabled (the macOS default) means rolling the wheel *towards* you. Turning natural scrolling off inverts the relationship, so if a wheel gesture fires for the wrong direction, swap `scrollup` and `scrolldown`.
