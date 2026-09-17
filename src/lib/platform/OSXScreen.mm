@@ -698,7 +698,15 @@ void OSXScreen::enable()
   m_events->addHandler(EventTypes::Timer, m_clipboardTimer, [this](const auto &) { checkClipboards(); });
 
   m_axTimer = m_events->newTimer(1.0, nullptr);
-  m_events->addHandler(EventTypes::Timer, m_axTimer, [this](const auto &) { checkAXPermissions(); });
+  m_events->addHandler(EventTypes::Timer, m_axTimer, [this](const auto &) {
+    checkAXPermissions();
+    // keep the scroll-wheel scaling cache fresh so the event-tap thread never
+    // reads CFPreferences synchronously (which can stall the tap).
+    refreshScrollScaling();
+  });
+
+  // populate the scroll-wheel scaling cache before any scroll event can arrive
+  refreshScrollScaling();
 
   if (m_isPrimary) {
     // FIXME -- start watching jump zones
@@ -1635,6 +1643,16 @@ int32_t OSXScreen::mapScrollWheelToDeskflow(int32_t x) const
 
 double OSXScreen::getScrollSpeed() const
 {
+  // mapScrollWheelToDeskflow() (and thus getScrollSpeed()) runs on the
+  // CGEventTap thread for every scroll event. Reading CFPreferences
+  // synchronously there can stall the tap and trip kCGEventTapDisabledByTimeout
+  // (which leaks events to local apps). Return the cache instead; it is
+  // populated off the tap thread by refreshScrollScaling().
+  return m_scrollScaling.load(std::memory_order_relaxed);
+}
+
+void OSXScreen::refreshScrollScaling()
+{
   double scaling = 0.0;
 
   CFPropertyListRef pref = ::CFPreferencesCopyValue(
@@ -1654,7 +1672,7 @@ double OSXScreen::getScrollSpeed() const
     CFRelease(pref);
   }
 
-  return scaling;
+  m_scrollScaling.store(scaling, std::memory_order_relaxed);
 }
 
 void OSXScreen::updateButtons()
@@ -2104,7 +2122,20 @@ CGEventRef OSXScreen::handleCGInputEvent(CGEventTapProxy proxy, CGEventType type
     }
     break;
   case kCGEventTapDisabledByUserInput:
-    LOG_ERR("quartz event tap was disabled by user input");
+    // The system can disable our tap when secure-event-input is toggled (e.g. by
+    // a password field, DRM-protected media, or an accessibility/permission
+    // change). Without re-enabling, every HID event bypasses the tap and leaks
+    // straight to local apps until the service is restarted. The leak is
+    // asymmetric and misleading: motion is invisible because leave() freezes the
+    // cursor via CGAssociateMouseAndMouseCursorPosition(false), but right-click
+    // and scroll-wheel act on the server's screen while the cursor is visually
+    // on the client. Recover the same way as the timeout case.
+    if (screen->checkAXPermissions()) {
+      CGEventTapEnable(screen->m_eventTapPort, true);
+      LOG_INFO("quartz event tap was disabled by user input, re-enabling");
+    } else {
+      LOG_ERR("quartz event tap was disabled by user input and not trusted");
+    }
     break;
   case NX_NULLEVENT:
     break;

@@ -151,6 +151,12 @@ private:
   // get the current scroll wheel speed
   double getScrollSpeed() const;
 
+  // refresh the cached scroll-wheel scaling from system preferences; safe to
+  // call from the main thread (does a synchronous CFPreferences read that must
+  // NOT run on the event-tap thread, where it can stall the tap and trip
+  // kCGEventTapDisabledByTimeout).
+  void refreshScrollScaling();
+
   // Resolution switch callback
   static void displayReconfigurationCallback(CGDirectDisplayID, CGDisplayChangeSummaryFlags, void *);
 
@@ -258,7 +264,13 @@ private:
   bool m_isPrimary;
 
   // true if mouse has entered the screen
-  bool m_isOnScreen;
+  //
+  // Written from the main event-queue thread (enter()/leave()/disable()) and
+  // read from the CGEventTap's dedicated thread (m_eventTapThread). It must be
+  // atomic: a stale read on the tap thread returns the wrong pass-through /
+  // swallow decision, which leaks right-click and scroll-wheel to local apps
+  // while the cursor is visually on a client screen.
+  std::atomic<bool> m_isOnScreen;
 
   // the display
   CGDirectDisplayID m_displayID;
@@ -366,6 +378,11 @@ private:
   double m_lastScrollGestureTime = 0.0;
   KeyModifierMask m_gesturePressMask = 0;
   CGEventFlags m_gesturePressFlags = 0;
+
+  // cached com.apple.scrollwheel.scaling, refreshed periodically off the
+  // event-tap thread. Read by getScrollSpeed() (called from the tap callback)
+  // so it must be lock-free and safe to load concurrently.
+  std::atomic<double> m_scrollScaling{0.0};
 
   // for double click coalescing.
   double m_lastClickTime;
