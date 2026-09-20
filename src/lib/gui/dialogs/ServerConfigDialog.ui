@@ -174,129 +174,129 @@
           <string>&amp;Hotkeys</string>
          </property>
          <layout class="QGridLayout" name="_3">
-          <item row="0" column="0" rowspan="4">
+          <item row="0" column="0" colspan="2">
+           <layout class="QHBoxLayout" name="hotkeyHeader">
+            <item>
+             <spacer name="hotkeyHeaderSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnNewHotkey">
+              <property name="text">
+               <string>&amp;New</string>
+              </property>
+              <property name="icon">
+               <iconset theme="QIcon::ThemeIcon::ListAdd"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnEditHotkey">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>&amp;Edit</string>
+              </property>
+              <property name="icon">
+               <iconset theme="document-edit"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnRemoveHotkey">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>&amp;Remove</string>
+              </property>
+              <property name="icon">
+               <iconset theme="QIcon::ThemeIcon::ListRemove"/>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0" colspan="2">
            <widget class="QListWidget" name="listHotkeys"/>
-          </item>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="btnNewHotkey">
-            <property name="enabled">
-             <bool>true</bool>
-            </property>
-            <property name="text">
-             <string>&amp;New</string>
-            </property>
-            <property name="icon">
-             <iconset theme="QIcon::ThemeIcon::ListAdd"/>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QPushButton" name="btnEditHotkey">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>&amp;Edit</string>
-            </property>
-            <property name="icon">
-             <iconset theme="document-edit"/>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QPushButton" name="btnRemoveHotkey">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>&amp;Remove</string>
-            </property>
-            <property name="icon">
-             <iconset theme="QIcon::ThemeIcon::ListRemove"/>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <spacer name="hotkeySpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>75</width>
-              <height>161</height>
-             </size>
-            </property>
-           </spacer>
           </item>
          </layout>
         </widget>
        </item>
        <item>
         <widget class="QGroupBox" name="groupActions">
-         <property name="font">
-          <font>
-           <kerning>true</kerning>
-          </font>
-         </property>
          <property name="title">
           <string>A&amp;ctions</string>
          </property>
          <layout class="QGridLayout">
-          <item row="0" column="0" rowspan="4">
+          <item row="0" column="0" colspan="2">
+           <layout class="QHBoxLayout" name="actionHeader">
+            <item>
+             <spacer name="actionHeaderSpacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnNewAction">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Ne&amp;w</string>
+              </property>
+              <property name="icon">
+               <iconset theme="QIcon::ThemeIcon::ListAdd"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnEditAction">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>E&amp;dit</string>
+              </property>
+              <property name="icon">
+               <iconset theme="document-edit"/>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnRemoveAction">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Re&amp;move</string>
+              </property>
+              <property name="icon">
+               <iconset theme="QIcon::ThemeIcon::ListRemove"/>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item row="1" column="0" colspan="2">
            <widget class="QListWidget" name="listActions"/>
-          </item>
-          <item row="0" column="1">
-           <widget class="QPushButton" name="btnNewAction">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>Ne&amp;w</string>
-            </property>
-            <property name="icon">
-             <iconset theme="QIcon::ThemeIcon::ListAdd"/>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QPushButton" name="btnEditAction">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>E&amp;dit</string>
-            </property>
-            <property name="icon">
-             <iconset theme="document-edit"/>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QPushButton" name="btnRemoveAction">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>Re&amp;move</string>
-            </property>
-            <property name="icon">
-             <iconset theme="QIcon::ThemeIcon::ListRemove"/>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <spacer name="actionSpacer">
-            <property name="orientation">
-             <enum>Qt::Orientation::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
           </item>
          </layout>
         </widget>
