@@ -109,16 +109,6 @@ InputFilter::GestureCondition::GestureCondition(IEventQueue *events, ButtonID bu
   // do nothing
 }
 
-ButtonID InputFilter::GestureCondition::getButton() const
-{
-  return m_button;
-}
-
-GestureDirection InputFilter::GestureCondition::getDirection() const
-{
-  return m_direction;
-}
-
 InputFilter::Condition *InputFilter::GestureCondition::clone() const
 {
   return new GestureCondition(m_events, m_button, m_direction, m_direction2);

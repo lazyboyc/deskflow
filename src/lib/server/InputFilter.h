@@ -80,9 +80,6 @@ public:
                      GestureDirection direction2 = GestureDirection::None);
     ~GestureCondition() override = default;
 
-    ButtonID getButton() const;
-    GestureDirection getDirection() const;
-
     // Condition overrides
     Condition *clone() const override;
     std::string format() const override;
