@@ -69,6 +69,8 @@ public:
   static const QStringList &gestureButtonNames();
   //! Names accepted by the server for the direction part of gesture(...)
   static const QStringList &gestureDirectionNames();
+  //! The 8 drag directions, usable as segments of a two-segment gesture
+  static const QStringList &gestureDragDirectionNames();
 
   const ActionList &actions() const
   {

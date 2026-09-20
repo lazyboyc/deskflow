@@ -60,12 +60,22 @@
      <item>
       <widget class="QComboBox" name="m_pGestureDirection"/>
      </item>
+     <item>
+      <widget class="QLabel" name="labelGestureDirection2">
+       <property name="text">
+        <string>Then:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="m_pGestureDirection2"/>
+     </item>
     </layout>
    </item>
    <item>
     <widget class="QLabel" name="labelGestureHint">
      <property name="text">
-      <string>Drag directions fire on release; scroll directions fire while the button is held.</string>
+      <string>Drag directions fire on release; scroll directions fire while the button is held. Pick a second direction for a two-segment gesture (e.g. up, then down).</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>

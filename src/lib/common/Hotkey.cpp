@@ -22,7 +22,10 @@ QString Hotkey::text() const
 
 const QStringList &Hotkey::gestureButtonNames()
 {
-  static const QStringList s_names = {QStringLiteral("left"), QStringLiteral("middle"), QStringLiteral("right")};
+  // The left button is excluded on purpose: it is the primary click/drag
+  // button, and holding its presses back for gesture recognition would break
+  // normal clicking everywhere.
+  static const QStringList s_names = {QStringLiteral("middle"), QStringLiteral("right")};
   return s_names;
 }
 
@@ -36,9 +39,32 @@ const QStringList &Hotkey::gestureDirectionNames()
   return s_names;
 }
 
+const QStringList &Hotkey::gestureDragDirectionNames()
+{
+  static const QStringList s_names = {
+      QStringLiteral("left"),   QStringLiteral("right"), QStringLiteral("up"),  QStringLiteral("down"),
+      QStringLiteral("upleft"), QStringLiteral("upright"), QStringLiteral("downleft"), QStringLiteral("downright")
+  };
+  return s_names;
+}
+
 void Hotkey::setGesture(const QString &button, const QString &direction)
 {
-  if (!gestureButtonNames().contains(button) || !gestureDirectionNames().contains(direction)) {
+  if (!gestureButtonNames().contains(button)) {
+    return;
+  }
+
+  // A direction is either a single name ("up") or two drag segments joined
+  // with '+' ("up+down"); the two segments must differ.
+  const int plus = direction.indexOf('+');
+  if (plus >= 0) {
+    const QString first = direction.left(plus);
+    const QString second = direction.mid(plus + 1);
+    if (!gestureDragDirectionNames().contains(first) || !gestureDragDirectionNames().contains(second)
+        || first == second) {
+      return;
+    }
+  } else if (!gestureDirectionNames().contains(direction)) {
     return;
   }
 

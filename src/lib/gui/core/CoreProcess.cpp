@@ -657,6 +657,8 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
     Q_EMIT peerFingerprint(args);
   } else if (command == "missingKeyboardLayouts") {
     Q_EMIT missingKeyboardLayouts(args);
+  } else if (command == "gestureTrail") {
+    Q_EMIT gestureTrail(args == "start");
   }
 }
 

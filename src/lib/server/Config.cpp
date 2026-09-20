@@ -741,13 +741,14 @@ Config::parseCondition(const ConfigReadContext &s, const std::string &name, cons
     }
 
     ButtonID button = kButtonNone;
-    if (args[0] == "left") {
-      button = kButtonLeft;
-    } else if (args[0] == "middle") {
+    if (args[0] == "middle") {
       button = kButtonMiddle;
     } else if (args[0] == "right") {
       button = kButtonRight;
     } else {
+      // The left button is deliberately not a gesture trigger: it is the
+      // primary click/drag button and holding its presses back for gesture
+      // recognition would break normal clicking everywhere.
       throw ServerConfigReadException(s, "unknown mouse button \"%{1}\" in gesture", args[0]);
     }
 
@@ -764,20 +765,42 @@ Config::parseCondition(const ConfigReadContext &s, const std::string &name, cons
         {"scrollleft", GestureDirection::ScrollLeft}, {"scrollright", GestureDirection::ScrollRight},
     };
 
+    const auto parseDirection = [&s](const std::string &name) {
+      for (const auto &entry : s_directions) {
+        if (name == entry.name) {
+          return entry.direction;
+        }
+      }
+      throw ServerConfigReadException(s, "unknown gesture direction \"%{1}\"", name);
+    };
+
+    // A direction is either a single token ("up") or two segments joined with
+    // '+' ("up+down"). Two-segment gestures accept only the 8 drag directions
+    // and the two segments must differ.
+    const auto isDragDirection = [](GestureDirection direction) {
+      return direction >= GestureDirection::Left && direction <= GestureDirection::DownRight;
+    };
+
     GestureDirection direction = GestureDirection::Left;
-    bool known = false;
-    for (const auto &entry : s_directions) {
-      if (args[1] == entry.name) {
-        direction = entry.direction;
-        known = true;
-        break;
+    GestureDirection direction2 = GestureDirection::None;
+
+    const size_t plus = args[1].find('+');
+    if (plus == std::string::npos) {
+      direction = parseDirection(args[1]);
+    } else {
+      const std::string first = args[1].substr(0, plus);
+      const std::string second = args[1].substr(plus + 1);
+      direction = parseDirection(first);
+      direction2 = parseDirection(second);
+      if (!isDragDirection(direction) || !isDragDirection(direction2)) {
+        throw ServerConfigReadException(s, "invalid two-segment gesture \"%{1}\": scroll directions cannot be a segment", args[1]);
+      }
+      if (direction == direction2) {
+        throw ServerConfigReadException(s, "invalid two-segment gesture \"%{1}\": the two segments must differ", args[1]);
       }
     }
-    if (!known) {
-      throw ServerConfigReadException(s, "unknown gesture direction \"%{1}\"", args[1]);
-    }
 
-    return new InputFilter::GestureCondition(m_events, button, direction);
+    return new InputFilter::GestureCondition(m_events, button, direction, direction2);
   }
 
   if (name == "connect") {

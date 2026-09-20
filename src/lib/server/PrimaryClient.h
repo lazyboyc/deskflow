@@ -56,7 +56,8 @@ public:
   Registers a gesture for mouse button \p button dragged in \p direction.
   Returns an id used to unregister the gesture.
   */
-  virtual uint32_t registerGesture(ButtonID button, GestureDirection direction);
+  virtual uint32_t registerGesture(ButtonID button, GestureDirection direction,
+                                   GestureDirection direction2 = GestureDirection::None);
 
   //! Unregister a mouse gesture
   /*!

@@ -31,6 +31,7 @@ class QLocalServer;
 
 class DeskflowApplication;
 class LogDock;
+class GestureTrailOverlay;
 class StatusBar;
 
 namespace Ui {
@@ -123,6 +124,7 @@ private:
   void closeEvent(QCloseEvent *event) override;
   bool maybeHideToTray();
   void secureSocket(bool secureSocket);
+  void handleGestureTrail(bool active);
   void connectSlots();
   void handleLogLine(const QString &line);
   void updateFingerprintButton();
@@ -184,6 +186,7 @@ private:
 
   LogDock *m_logDock;
   StatusBar *m_statusBar = nullptr;
+  GestureTrailOverlay *m_gestureTrail = nullptr;
 
   // Window Menu
   QMenu *m_menuFile = nullptr;

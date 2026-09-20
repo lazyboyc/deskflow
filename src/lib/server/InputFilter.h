@@ -76,7 +76,8 @@ public:
   class GestureCondition : public Condition
   {
   public:
-    GestureCondition(IEventQueue *events, ButtonID button, GestureDirection direction);
+    GestureCondition(IEventQueue *events, ButtonID button, GestureDirection direction,
+                     GestureDirection direction2 = GestureDirection::None);
     ~GestureCondition() override = default;
 
     ButtonID getButton() const;
@@ -93,6 +94,8 @@ public:
     uint32_t m_id = 0;
     ButtonID m_button;
     GestureDirection m_direction;
+    //! None for a one-segment gesture, otherwise the second segment direction
+    GestureDirection m_direction2;
     IEventQueue *m_events;
   };
 

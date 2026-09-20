@@ -28,6 +28,7 @@
 #include "gui/TlsUtility.h"
 #include "gui/core/CoreProcess.h"
 #include "gui/ipc/DaemonIpcClient.h"
+#include "gui/widgets/GestureTrailOverlay.h"
 #include "gui/widgets/LogDock.h"
 #include "net/FingerprintDatabase.h"
 #include "widgets/StatusBar.h"
@@ -64,6 +65,9 @@ MainWindow::MainWindow()
       m_guiDupeChecker{new QLocalServer(this)},
       m_daemonIpcClient{new ipc::DaemonIpcClient(this)},
       m_logDock{new LogDock(this)},
+      // No parent: a parented window shares the main window's macOS window
+      // group, so showing it would also raise the main window to the front.
+      m_gestureTrail{new GestureTrailOverlay()},
       m_statusBar{new StatusBar(this)},
       m_menuFile{new QMenu(this)},
       m_menuEdit{new QMenu(this)},
@@ -251,6 +255,7 @@ void MainWindow::connectSlots()
   );
   connect(&m_coreProcess, &CoreProcess::connectionStateChanged, this, &MainWindow::coreConnectionStateChanged);
   connect(&m_coreProcess, &CoreProcess::secureSocket, this, &MainWindow::secureSocket);
+  connect(&m_coreProcess, &CoreProcess::gestureTrail, this, &MainWindow::handleGestureTrail);
   connect(
       &m_coreProcess, &CoreProcess::daemonIpcClientConnectionFailed, this, &MainWindow::daemonIpcClientConnectionFailed
   );
@@ -1103,6 +1108,15 @@ void MainWindow::secureSocket(bool secureSocket)
 {
   m_secureSocket = secureSocket;
   updateSecurityIcon(m_statusBar->securityIconVisible());
+}
+
+void MainWindow::handleGestureTrail(bool active)
+{
+  if (active) {
+    m_gestureTrail->start();
+  } else {
+    m_gestureTrail->stop();
+  }
 }
 
 void MainWindow::updateScreenName()

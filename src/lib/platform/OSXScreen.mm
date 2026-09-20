@@ -33,6 +33,8 @@
 #include "platform/OSXPasteboardPeeker.h"
 #include "platform/OSXScreenSaver.h"
 
+#include "deskflow/ipc/CoreIpc.h"
+
 #include <AppKit/NSEvent.h>
 #include <AvailabilityMacros.h>
 #include <IOKit/hidsystem/event_status_driver.h>
@@ -1202,16 +1204,21 @@ bool OSXScreen::hasGestureOnButton(ButtonID button) const
   return false;
 }
 
-uint32_t OSXScreen::registerGesture(ButtonID button, GestureDirection direction)
+uint32_t OSXScreen::registerGesture(ButtonID button, GestureDirection direction, GestureDirection direction2)
 {
   if (button == kButtonNone) {
     return 0;
   }
 
   const uint32_t id = m_nextGestureId++;
-  m_gestures[id] = {button, direction};
+  m_gestures[id] = {button, direction, direction2};
 
-  LOG_DEBUG("registered gesture button=%d direction=%d as id=%u", button, static_cast<int>(direction), id);
+  if (direction2 != GestureDirection::None) {
+    LOG_DEBUG("registered gesture button=%d direction=%d+%d as id=%u", button, static_cast<int>(direction),
+              static_cast<int>(direction2), id);
+  } else {
+    LOG_DEBUG("registered gesture button=%d direction=%d as id=%u", button, static_cast<int>(direction), id);
+  }
   return id;
 }
 
@@ -1247,6 +1254,10 @@ bool OSXScreen::beginGesture(ButtonID button)
   m_gesturePressMask = m_keyState->getActiveModifiers();
   m_gesturePressFlags = m_keyState->getModifierStateAsOSXFlags();
 
+  // Ask the GUI to draw the cursor trail so the user can see the stroke while
+  // the gesture is being recognised.
+  ipcSendToClient(QStringLiteral("gestureTrail"), QStringLiteral("start"));
+
   LOG_VERBOSE("gesture tracking started on button=%d", button);
   return true;
 }
@@ -1256,8 +1267,176 @@ void OSXScreen::resetGesture()
   m_activeGestureButton = kButtonNone;
   m_gestureX = 0;
   m_gestureY = 0;
-  m_gestureArmed = false;
+  m_gestureSeg1 = GestureDirection::None;
+  m_gestureSeg2 = GestureDirection::None;
+  m_gestureSegX = 0;
+  m_gestureSegY = 0;
+  m_gestureTurnPending = false;
   m_gestureScrollFired = false;
+}
+
+GestureDirection OSXScreen::gestureDirectionFromVector(int32_t x, int32_t y)
+{
+  if (x == 0 && y == 0) {
+    return GestureDirection::None;
+  }
+
+  // Convert to mathematical orientation (y grows upward) and take the angle.
+  const double angle = std::atan2(-(double)y, (double)x) * 180.0 / M_PI; // (-180, 180]
+
+  // The 8 directions evenly divide the circle, so each occupies a 45-degree
+  // sector centred on its own direction (right = 0°, up = 90°, ...).
+  static constexpr GestureDirection kSectors[8] = {
+      GestureDirection::Right,   GestureDirection::UpRight, GestureDirection::Up,     GestureDirection::UpLeft,
+      GestureDirection::Left,    GestureDirection::DownLeft, GestureDirection::Down,  GestureDirection::DownRight
+  };
+  int sector = static_cast<int>(std::floor((angle + 22.5) / 45.0));
+  sector = ((sector % 8) + 8) % 8;
+  return kSectors[sector];
+}
+
+void OSXScreen::gestureDirectionAxis(GestureDirection direction, double &ux, double &uy)
+{
+  // Screen coordinates: x grows right, y grows down.
+  ux = 0;
+  uy = 0;
+  switch (direction) {
+  case GestureDirection::Right: ux = 1; break;
+  case GestureDirection::Left: ux = -1; break;
+  case GestureDirection::Up: uy = -1; break;
+  case GestureDirection::Down: uy = 1; break;
+  case GestureDirection::UpRight: ux = 1; uy = -1; break;
+  case GestureDirection::UpLeft: ux = -1; uy = -1; break;
+  case GestureDirection::DownLeft: ux = -1; uy = 1; break;
+  case GestureDirection::DownRight: ux = 1; uy = 1; break;
+  default: break;
+  }
+  if (ux != 0 && uy != 0) {
+    const double inv = 1.0 / std::sqrt(2.0);
+    ux *= inv;
+    uy *= inv;
+  }
+}
+
+void OSXScreen::accumulateGesture(int32_t dx, int32_t dy)
+{
+  if (m_activeGestureButton == kButtonNone) {
+    return;
+  }
+
+  m_gestureX += dx;
+  m_gestureY += dy;
+
+  // Segment 1: classify the stroke once it leaves the press point by more than
+  // the threshold. The press point is the origin of this segment.
+  if (m_gestureSeg1 == GestureDirection::None) {
+    if (m_gestureX * m_gestureX + m_gestureY * m_gestureY >= kGestureThreshold * kGestureThreshold) {
+      m_gestureSeg1 = gestureDirectionFromVector(m_gestureX, m_gestureY);
+      m_gestureSegX = 0;
+      m_gestureSegY = 0;
+      LOG_VERBOSE("gesture segment 1 locked direction=%d after dragging %+d,%+d", static_cast<int>(m_gestureSeg1),
+                  m_gestureX, m_gestureY);
+    }
+    return;
+  }
+
+  // Segment 2 already locked: a stroke only has two segments, ignore the rest.
+  if (m_gestureSeg2 != GestureDirection::None) {
+    return;
+  }
+
+  m_gestureSegX += dx;
+  m_gestureSegY += dy;
+
+  // A turn was detected earlier; its point is the origin of segment 2, so wait
+  // until the movement from there is long enough to classify the segment.
+  if (m_gestureTurnPending) {
+    if (m_gestureSegX * m_gestureSegX + m_gestureSegY * m_gestureSegY >= kGestureThreshold * kGestureThreshold) {
+      const GestureDirection direction = gestureDirectionFromVector(m_gestureSegX, m_gestureSegY);
+      m_gestureTurnPending = false;
+      m_gestureSegX = 0;
+      m_gestureSegY = 0;
+      if (direction != GestureDirection::None && direction != m_gestureSeg1) {
+        m_gestureSeg2 = direction;
+        LOG_VERBOSE("gesture segment 2 locked direction=%d", static_cast<int>(m_gestureSeg2));
+      }
+    }
+    return;
+  }
+
+  // Detect the turn away from segment 1. The corner (the end of segment 1 and
+  // the origin of segment 2) is where the stroke deviates from segment 1's
+  // axis by more than the threshold, either sideways or as a full reversal.
+  double ux = 0;
+  double uy = 0;
+  gestureDirectionAxis(m_gestureSeg1, ux, uy);
+  const double parallel = m_gestureSegX * ux + m_gestureSegY * uy;
+  const double lengthSq = (double)m_gestureSegX * m_gestureSegX + (double)m_gestureSegY * m_gestureSegY;
+  const double perpSq = lengthSq - parallel * parallel;
+  const double threshold = (double)kGestureThreshold;
+
+  if (perpSq >= threshold * threshold || parallel <= -threshold) {
+    LOG_VERBOSE("gesture turn detected after %+d,%+d", m_gestureSegX, m_gestureSegY);
+    m_gestureTurnPending = true;
+    m_gestureSegX = 0;
+    m_gestureSegY = 0;
+  } else if (lengthSq >= threshold * threshold) {
+    // Still moving along segment 1: slide the corner forward so any later turn
+    // is measured against recent movement only.
+    m_gestureSegX = 0;
+    m_gestureSegY = 0;
+  }
+}
+
+OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
+{
+  if (button == kButtonNone || button != m_activeGestureButton) {
+    return GestureOutcome::None;
+  }
+
+  const bool scrollFired = m_gestureScrollFired;
+  const GestureDirection seg1 = m_gestureSeg1;
+  const GestureDirection seg2 = m_gestureSeg2;
+  const ButtonID gestureButton = m_activeGestureButton;
+
+  resetGesture();
+
+  // The stroke is over either way, so the GUI can remove the cursor trail.
+  ipcSendToClient(QStringLiteral("gestureTrail"), QStringLiteral("stop"));
+
+  if (scrollFired) {
+    // Wheel movements already ran a gesture for this press, so the press is not
+    // a click and must not be replayed.
+    return GestureOutcome::Fired;
+  }
+
+  // A two-segment binding is tried first so that, say, up+down does not get
+  // shadowed by a plain up binding; if no two-segment binding matches, a
+  // one-segment binding for the first segment still fires.
+  if (seg2 != GestureDirection::None) {
+    if (const uint32_t id = findGesture(gestureButton, seg1, seg2); id != 0) {
+      LOG_DEBUG("gesture recognised button=%d direction=%d+%d", gestureButton, static_cast<int>(seg1),
+                static_cast<int>(seg2));
+      fireGesture(id);
+      return GestureOutcome::Fired;
+    }
+  }
+
+  if (seg1 != GestureDirection::None) {
+    if (const uint32_t id = findGesture(gestureButton, seg1); id != 0) {
+      LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(seg1));
+      fireGesture(id);
+      return GestureOutcome::Fired;
+    }
+  }
+
+  // The pointer travelled far enough to be a gesture, but no binding matches the
+  // direction, so fall back to delivering the click. A plain button drag cannot
+  // be replayed and is therefore lost, which is the price of holding the press
+  // until the intent is known.
+  LOG_VERBOSE("no gesture bound to button=%d segment1=%d segment2=%d", gestureButton, static_cast<int>(seg1),
+              static_cast<int>(seg2));
+  return GestureOutcome::Click;
 }
 
 void OSXScreen::fireGesture(uint32_t id)
@@ -1271,10 +1450,10 @@ void OSXScreen::fireGesture(uint32_t id)
   m_events->addEvent(Event(EventTypes::PrimaryScreenHotkeyUp, getEventTarget(), HotKeyInfo::alloc(id)));
 }
 
-uint32_t OSXScreen::findGesture(ButtonID button, GestureDirection direction) const
+uint32_t OSXScreen::findGesture(ButtonID button, GestureDirection direction, GestureDirection direction2) const
 {
   for (const auto &[id, binding] : m_gestures) {
-    if (binding.m_button == button && binding.m_direction == direction) {
+    if (binding.m_button == button && binding.m_direction == direction && binding.m_direction2 == direction2) {
       return id;
     }
   }
@@ -1315,70 +1494,6 @@ bool OSXScreen::handleGestureScroll(int32_t xDelta, int32_t yDelta)
   );
   fireGesture(id);
   return true;
-}
-
-void OSXScreen::accumulateGesture(int32_t dx, int32_t dy)
-{
-  if (m_activeGestureButton == kButtonNone) {
-    return;
-  }
-
-  m_gestureX += dx;
-  m_gestureY += dy;
-
-  if (!m_gestureArmed &&
-      (gestureAbs(m_gestureX) >= kGestureThreshold || gestureAbs(m_gestureY) >= kGestureThreshold)) {
-    m_gestureArmed = true;
-    LOG_VERBOSE("gesture armed after dragging %+d,%+d", m_gestureX, m_gestureY);
-  }
-}
-
-OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
-{
-  if (button == kButtonNone || button != m_activeGestureButton) {
-    return GestureOutcome::None;
-  }
-
-  const bool armed = m_gestureArmed;
-  const bool scrollFired = m_gestureScrollFired;
-  const int32_t x = m_gestureX;
-  const int32_t y = m_gestureY;
-  const ButtonID gestureButton = m_activeGestureButton;
-
-  resetGesture();
-
-  if (scrollFired) {
-    // Wheel movements already ran a gesture for this press, so the press is not
-    // a click and must not be replayed.
-    return GestureOutcome::Fired;
-  }
-
-  if (!armed) {
-    return GestureOutcome::Click;
-  }
-
-  // The dominant axis wins; ties fall back to the horizontal axis.
-  GestureDirection direction;
-  if (gestureAbs(x) >= gestureAbs(y)) {
-    direction = (x >= 0) ? GestureDirection::Right : GestureDirection::Left;
-  } else {
-    direction = (y >= 0) ? GestureDirection::Down : GestureDirection::Up;
-  }
-
-  if (const uint32_t id = findGesture(gestureButton, direction); id != 0) {
-    LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(direction));
-    // Delivered as a hot key press/release pair so the gesture can be bound to
-    // the same actions as a hot key.
-    fireGesture(id);
-    return GestureOutcome::Fired;
-  }
-
-  // The pointer travelled far enough to be a gesture, but no binding matches the
-  // direction, so fall back to delivering the click. A plain button drag cannot
-  // be replayed and is therefore lost, which is the price of holding the press
-  // until the intent is known.
-  LOG_VERBOSE("no gesture bound to button=%d direction=%d", gestureButton, static_cast<int>(direction));
-  return GestureOutcome::Click;
 }
 
 void OSXScreen::deliverHeldClick(ButtonID button)

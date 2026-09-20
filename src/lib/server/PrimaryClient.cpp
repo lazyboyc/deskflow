@@ -35,9 +35,9 @@ void PrimaryClient::unregisterHotKey(uint32_t id)
   m_screen->unregisterHotKey(id);
 }
 
-uint32_t PrimaryClient::registerGesture(ButtonID button, GestureDirection direction)
+uint32_t PrimaryClient::registerGesture(ButtonID button, GestureDirection direction, GestureDirection direction2)
 {
-  return m_screen->registerGesture(button, direction);
+  return m_screen->registerGesture(button, direction, direction2);
 }
 
 void PrimaryClient::unregisterGesture(uint32_t id)

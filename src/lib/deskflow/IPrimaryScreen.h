@@ -30,7 +30,9 @@ enum class GestureDirection
   ScrollUp,
   ScrollDown,
   ScrollLeft,
-  ScrollRight
+  ScrollRight,
+  //! Sentinel for "no direction" (e.g. the second segment of a one-segment gesture)
+  None
 };
 
 //! Primary screen interface
@@ -156,15 +158,17 @@ public:
   //! Register a mouse gesture
   /*!
   Registers a gesture triggered by holding mouse button \p button and dragging
-  the pointer in \p direction.  When the gesture is recognized the screen posts
-  a \c PrimaryScreenHotkeyDown event carrying the returned id, so a gesture can
-  be bound to the same actions as a hot key.  Returns 0 on failure, otherwise an
-  id that can be used to unregister the gesture.
+  the pointer in \p direction.  When \p direction2 is not \c None the gesture is
+  two-segment: the drag must first travel in \p direction and then turn into
+  \p direction2 (e.g. up then down).  When the gesture is recognized the screen
+  posts a \c PrimaryScreenHotkeyDown event carrying the returned id, so a
+  gesture can be bound to the same actions as a hot key.  Returns 0 on failure,
+  otherwise an id that can be used to unregister the gesture.
 
   Platforms without gesture support keep the default implementation and simply
   never fire the bound action.
   */
-  virtual uint32_t registerGesture(ButtonID, GestureDirection)
+  virtual uint32_t registerGesture(ButtonID, GestureDirection, GestureDirection direction2 = GestureDirection::None)
   {
     return 0;
   }

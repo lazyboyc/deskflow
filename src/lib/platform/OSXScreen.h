@@ -69,7 +69,7 @@ public:
 
   //! @name mouse gestures
   //@{
-  uint32_t registerGesture(ButtonID button, GestureDirection direction) override;
+  uint32_t registerGesture(ButtonID button, GestureDirection direction, GestureDirection direction2) override;
   void unregisterGesture(uint32_t id) override;
   //@}
   void fakeInputBegin() override;
@@ -183,6 +183,8 @@ private:
   {
     ButtonID m_button;
     GestureDirection m_direction;
+    //! None for a one-segment gesture, otherwise the second segment direction
+    GestureDirection m_direction2 = GestureDirection::None;
   };
 
   //! What became of a press on a gesture button
@@ -194,7 +196,7 @@ private:
   };
 
   bool hasGestureOnButton(ButtonID button) const;
-  uint32_t findGesture(ButtonID button, GestureDirection direction) const;
+  uint32_t findGesture(ButtonID button, GestureDirection direction, GestureDirection direction2 = GestureDirection::None) const;
   void fireGesture(uint32_t id);
   bool beginGesture(ButtonID button);
   void resetGesture();
@@ -202,6 +204,12 @@ private:
   bool handleGestureScroll(int32_t xDelta, int32_t yDelta);
   GestureOutcome finishGesture(ButtonID button);
   void deliverHeldClick(ButtonID button);
+  //! Classify a displacement vector (screen coordinates, y grows downward)
+  //! into one of the 8 drag directions. The 8 directions evenly divide the
+  //! circle into 45-degree sectors centred on each direction.
+  static GestureDirection gestureDirectionFromVector(int32_t x, int32_t y);
+  //! Unit axis vector of a drag direction (screen coordinates, y grows down).
+  static void gestureDirectionAxis(GestureDirection direction, double &ux, double &uy);
 
   // Quartz event tap support
   void installEventTap();
@@ -373,7 +381,17 @@ private:
   ButtonID m_activeGestureButton = kButtonNone;
   int32_t m_gestureX = 0;
   int32_t m_gestureY = 0;
-  bool m_gestureArmed = false;
+  //! Direction of the first stroke segment, locked once the drag passes the
+  //! threshold. None while the stroke is still too short to classify.
+  GestureDirection m_gestureSeg1 = GestureDirection::None;
+  //! Direction of the second stroke segment; stays None for a one-segment drag.
+  GestureDirection m_gestureSeg2 = GestureDirection::None;
+  //! Displacement accumulated since the last corner (or since segment 1 locked)
+  int32_t m_gestureSegX = 0;
+  int32_t m_gestureSegY = 0;
+  //! True while waiting for the second segment to grow past the threshold
+  //! after a turn was detected; its origin is the turn point.
+  bool m_gestureTurnPending = false;
   bool m_gestureScrollFired = false;
   double m_lastScrollGestureTime = 0.0;
   KeyModifierMask m_gesturePressMask = 0;

@@ -200,9 +200,11 @@ public:
   //! Register a mouse gesture
   /*!
   Registers a gesture for mouse button \p button dragged in \p direction.
-  Returns an id used to unregister the gesture.
+  When \p direction2 is not None the gesture is two-segment (direction then
+  direction2). Returns an id used to unregister the gesture.
   */
-  uint32_t registerGesture(ButtonID button, GestureDirection direction);
+  uint32_t registerGesture(ButtonID button, GestureDirection direction,
+                           GestureDirection direction2 = GestureDirection::None);
 
   //! Unregister a mouse gesture
   /*!

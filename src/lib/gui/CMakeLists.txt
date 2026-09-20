@@ -98,6 +98,8 @@ add_library(${target} STATIC
   validators/IpAddressValidator.h
   widgets/FingerprintPreview.cpp
   widgets/FingerprintPreview.h
+  widgets/GestureTrailOverlay.h
+  widgets/GestureTrailOverlay.mm
   widgets/KeySequenceWidget.cpp
   widgets/KeySequenceWidget.h
   widgets/LogDock.cpp

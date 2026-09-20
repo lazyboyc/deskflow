@@ -100,9 +100,10 @@ void InputFilter::KeystrokeCondition::disablePrimary(PrimaryClient *primary)
   m_id = 0;
 }
 
-InputFilter::GestureCondition::GestureCondition(IEventQueue *events, ButtonID button, GestureDirection direction)
+InputFilter::GestureCondition::GestureCondition(IEventQueue *events, ButtonID button, GestureDirection direction, GestureDirection direction2)
     : m_button(button),
       m_direction(direction),
+      m_direction2(direction2),
       m_events(events)
 {
   // do nothing
@@ -120,7 +121,7 @@ GestureDirection InputFilter::GestureCondition::getDirection() const
 
 InputFilter::Condition *InputFilter::GestureCondition::clone() const
 {
-  return new GestureCondition(m_events, m_button, m_direction);
+  return new GestureCondition(m_events, m_button, m_direction, m_direction2);
 }
 
 std::string InputFilter::GestureCondition::format() const
@@ -128,8 +129,15 @@ std::string InputFilter::GestureCondition::format() const
   static const char *s_button[] = {"none", "left", "middle", "right", "extra0", "extra1"};
   static const char *s_direction[] = {
       "left",     "right",     "up",         "down",        "upleft",     "upright",
-      "downleft", "downright", "scrollup",   "scrolldown",  "scrollleft", "scrollright"
+      "downleft", "downright", "scrollup",   "scrolldown",  "scrollleft", "scrollright", "none"
   };
+
+  if (m_direction2 != GestureDirection::None) {
+    return deskflow::string::sprintf(
+        "gesture(%s,%s+%s)", s_button[m_button], s_direction[static_cast<int>(m_direction)],
+        s_direction[static_cast<int>(m_direction2)]
+    );
+  }
 
   return deskflow::string::sprintf(
       "gesture(%s,%s)", s_button[m_button], s_direction[static_cast<int>(m_direction)]
@@ -163,7 +171,7 @@ InputFilter::FilterStatus InputFilter::GestureCondition::match(const Event &even
 
 void InputFilter::GestureCondition::enablePrimary(PrimaryClient *primary)
 {
-  m_id = primary->registerGesture(m_button, m_direction);
+  m_id = primary->registerGesture(m_button, m_direction, m_direction2);
 }
 
 void InputFilter::GestureCondition::disablePrimary(PrimaryClient *primary)
