@@ -53,7 +53,7 @@ public:
   {
   public:
     KeystrokeCondition(IEventQueue *events, IPlatformScreen::KeyInfo *, const QString &ruleText = {});
-    KeystrokeCondition(IEventQueue *events, KeyID key, KeyModifierMask mask);
+    KeystrokeCondition(IEventQueue *events, KeyID key, KeyModifierMask mask, const QString &ruleText = {});
     ~KeystrokeCondition() override = default;
 
     KeyID getKey() const;

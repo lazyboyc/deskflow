@@ -41,9 +41,10 @@ InputFilter::KeystrokeCondition::KeystrokeCondition(IEventQueue *events, IPlatfo
   free(info);
 }
 
-InputFilter::KeystrokeCondition::KeystrokeCondition(IEventQueue *events, KeyID key, KeyModifierMask mask)
+InputFilter::KeystrokeCondition::KeystrokeCondition(IEventQueue *events, KeyID key, KeyModifierMask mask, const QString &ruleText)
     : m_key(key),
       m_mask(mask),
+      m_ruleText(ruleText),
       m_events(events)
 {
   // do nothing
@@ -61,7 +62,7 @@ KeyModifierMask InputFilter::KeystrokeCondition::getMask() const
 
 InputFilter::Condition *InputFilter::KeystrokeCondition::clone() const
 {
-  return new KeystrokeCondition(m_events, m_key, m_mask);
+  return new KeystrokeCondition(m_events, m_key, m_mask, m_ruleText);
 }
 
 std::string InputFilter::KeystrokeCondition::format() const
