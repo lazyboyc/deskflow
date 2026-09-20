@@ -1629,8 +1629,9 @@ bool OSXScreen::onKey(CGEventRef event)
     m_keyState->handleModifierKeys(getEventTarget(), oldMask, newMask);
 
     // if the current set of modifiers exactly matches a modifiers-only
-    // hot key then generate a hot key down event.
-    if (m_activeModifierHotKey == 0) {
+    // hot key then generate a hot key down event. Like the key-based hotkeys
+    // below, modifiers-only hotkeys only intercept local typing.
+    if (m_activeModifierHotKey == 0 && m_isOnScreen) {
       if (m_modifierHotKeys.count(newMask) > 0) {
         m_activeModifierHotKey = m_modifierHotKeys[newMask];
         m_activeModifierHotKeyMask = newMask;
@@ -1659,7 +1660,11 @@ bool OSXScreen::onKey(CGEventRef event)
   // check for hot key
   HotKeyToIDMap::const_iterator i =
       m_hotKeyToIDMap.find(HotKeyItem(virtualKey, m_keyState->mapModifiersToCarbon(macMask) & 0xff00u));
-  if (i != m_hotKeyToIDMap.end()) {
+  if (i != m_hotKeyToIDMap.end() && m_isOnScreen) {
+    // Hotkeys only intercept typing on this screen: while the keys are being
+    // forwarded to a client they must reach it untouched, otherwise common
+    // combos like Ctrl+C could never copy on the client. Off-screen the code
+    // below forwards the key normally instead of firing the hotkey.
     uint32_t id = i->second;
 
     // determine event type
@@ -1747,6 +1752,11 @@ bool OSXScreen::onHotKey(EventRef event) const
   EventTypes type;
   uint32_t eventKind = GetEventKind(event);
   if (eventKind == kEventHotKeyPressed) {
+    // Same rule as the tap path: hotkeys only intercept local typing, so a
+    // key press while the cursor is on a client is forwarded untouched.
+    if (!m_isOnScreen) {
+      return false;
+    }
     type = EventTypes::PrimaryScreenHotkeyDown;
   } else if (eventKind == kEventHotKeyReleased) {
     type = EventTypes::PrimaryScreenHotkeyUp;
