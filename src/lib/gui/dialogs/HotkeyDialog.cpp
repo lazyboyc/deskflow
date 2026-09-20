@@ -41,7 +41,10 @@ HotkeyDialog::HotkeyDialog(QWidget *parent, Hotkey &hotkey)
 
   const bool isGesture = m_Hotkey.trigger() == Hotkey::Trigger::Gesture;
 
-  ui->m_pKeySequenceWidgetHotkey->setText(isGesture ? QString() : m_Hotkey.text());
+  // Initialise the widget's key sequence so editing an existing hotkey keeps
+  // it valid; setText() alone would leave the internal sequence empty and the
+  // dialog could never be accepted.
+  ui->m_pKeySequenceWidgetHotkey->setKeySequence(m_Hotkey.keySequence());
 
   ui->m_pTriggerType->setCurrentIndex(ui->m_pTriggerType->findData(static_cast<int>(m_Hotkey.trigger())));
 
