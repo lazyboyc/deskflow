@@ -107,7 +107,7 @@ void GestureTrailOverlay::showNote(const QString &note)
 #endif
   update();
 
-  QTimer::singleShot(1000, this, [this] {
+  QTimer::singleShot(600, this, [this] {
     m_showingNote = false;
     hide();
     update();
@@ -137,11 +137,15 @@ void GestureTrailOverlay::paintEvent(QPaintEvent *event)
 
   if (m_showingNote) {
     // A toast centred on the fixed note position (screen centre, lower third).
-    const QFontMetrics metrics(painter.font());
+    QFont font = painter.font();
+    font.setPointSizeF(font.pointSizeF() * 2);
+    painter.setFont(font);
+    const QFontMetrics metrics(font);
     const QRectF textRect = metrics.boundingRect(m_note);
-    const QSizeF pad(12, 8);
-    QRectF rect(m_notePos.x() - (textRect.width() + pad.width() * 2) / 2, m_notePos.y() - (textRect.height() + pad.height() * 2) / 2,
-                textRect.width() + pad.width() * 2, textRect.height() + pad.height() * 2);
+    const QSizeF pad(16, 16); // equal border on all sides
+    const qreal w = textRect.width() + pad.width() * 2;
+    const qreal h = textRect.height() + pad.height() * 2;
+    QRectF rect(m_notePos.x() - w / 2, m_notePos.y() - h / 2, w, h);
     // Keep the toast inside the virtual desktop.
     const QRectF bounds = geometry();
     rect.moveLeft(qBound(bounds.left() + 4, rect.left(), bounds.right() - rect.width() - 4));
