@@ -377,8 +377,8 @@ private:
   // as a hot key down event carrying the id.
   static constexpr int32_t kGestureThreshold = 40;
   static constexpr uint32_t kGestureIdBase = 0x40000000u;
-  //! One physical wheel notch arrives as a burst of events, momentum included.
-  static constexpr double kScrollGestureDebounce = 0.15;
+  //! One physical wheel notch is reported as 120 units (before acceleration).
+  static constexpr int32_t kScrollGestureThreshold = 120;
 
   std::map<uint32_t, GestureBinding> m_gestures;
   uint32_t m_nextGestureId = kGestureIdBase;
@@ -396,8 +396,11 @@ private:
   //! True while waiting for the second segment to grow past the threshold
   //! after a turn was detected; its origin is the turn point.
   bool m_gestureTurnPending = false;
+  //! Wheel delta accumulated while the gesture button is held; each threshold
+  //! crossing fires the bound action and carries the remainder over.
+  int32_t m_scrollGestureAccumX = 0;
+  int32_t m_scrollGestureAccumY = 0;
   bool m_gestureScrollFired = false;
-  double m_lastScrollGestureTime = 0.0;
   KeyModifierMask m_gesturePressMask = 0;
   CGEventFlags m_gesturePressFlags = 0;
 

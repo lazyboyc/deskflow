@@ -1273,6 +1273,8 @@ void OSXScreen::resetGesture()
   m_gestureSegY = 0;
   m_gestureTurnPending = false;
   m_gestureScrollFired = false;
+  m_scrollGestureAccumX = 0;
+  m_scrollGestureAccumY = 0;
 }
 
 GestureDirection OSXScreen::gestureDirectionFromVector(int32_t x, int32_t y)
@@ -1492,35 +1494,48 @@ bool OSXScreen::handleGestureScroll(int32_t xDelta, int32_t yDelta)
     return false;
   }
 
-  GestureDirection direction;
-  if (gestureAbs(yDelta) >= gestureAbs(xDelta)) {
-    direction = (yDelta > 0) ? GestureDirection::ScrollUp : GestureDirection::ScrollDown;
-  } else {
-    direction = (xDelta > 0) ? GestureDirection::ScrollRight : GestureDirection::ScrollLeft;
+  bool fired = false;
+  bool consumed = false;
+
+  // Scroll gestures accumulate: while the gesture button is held, wheel deltas
+  // pile up per axis and each time the accumulated amount crosses the
+  // threshold the bound action fires. The remainder carries over, so simply
+  // keeping the wheel rolling fires the action again and again until the
+  // button is released.
+  const auto processAxis = [&](int32_t delta, GestureDirection positive, GestureDirection negative, int32_t &accum) {
+    if (delta == 0) {
+      return;
+    }
+
+    accum += delta;
+    const GestureDirection direction = (accum > 0) ? positive : negative;
+    const uint32_t id = findGesture(m_activeGestureButton, direction);
+    if (id == 0) {
+      // Nothing bound to this direction: do not accumulate and let the wheel
+      // movement through to the active screen.
+      accum -= delta;
+      return;
+    }
+
+    consumed = true;
+    if (gestureAbs(accum) >= kScrollGestureThreshold) {
+      LOG_DEBUG("scroll gesture recognised button=%d direction=%d", m_activeGestureButton, static_cast<int>(direction));
+      fireGesture(id);
+      ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
+      accum -= (accum > 0) ? kScrollGestureThreshold : -kScrollGestureThreshold;
+      fired = true;
+    }
+  };
+
+  processAxis(yDelta, GestureDirection::ScrollUp, GestureDirection::ScrollDown, m_scrollGestureAccumY);
+  processAxis(xDelta, GestureDirection::ScrollRight, GestureDirection::ScrollLeft, m_scrollGestureAccumX);
+
+  if (fired) {
+    // The press belonged to a scroll gesture, so do not replay it as a click.
+    m_gestureScrollFired = true;
   }
 
-  const uint32_t id = findGesture(m_activeGestureButton, direction);
-  if (id == 0) {
-    return false;
-  }
-
-  // A single notch arrives as a burst of events, so ignore the rest of the
-  // burst and any momentum that follows it.
-  const double now = Arch::time();
-  if (now - m_lastScrollGestureTime < kScrollGestureDebounce) {
-    return true;
-  }
-  m_lastScrollGestureTime = now;
-
-  // The press belonged to a scroll gesture, so do not replay it as a click.
-  m_gestureScrollFired = true;
-
-  LOG_DEBUG(
-      "scroll gesture recognised button=%d direction=%d", m_activeGestureButton, static_cast<int>(direction)
-  );
-  fireGesture(id);
-  ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
-  return true;
+  return consumed;
 }
 
 void OSXScreen::deliverHeldClick(ButtonID button)
