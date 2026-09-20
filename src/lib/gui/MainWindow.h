@@ -125,6 +125,7 @@ private:
   bool maybeHideToTray();
   void secureSocket(bool secureSocket);
   void handleGestureTrail(bool active);
+  void showMatchedNote(const QString &ruleText);
   void connectSlots();
   void handleLogLine(const QString &line);
   void updateFingerprintButton();

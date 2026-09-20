@@ -659,6 +659,10 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
     Q_EMIT missingKeyboardLayouts(args);
   } else if (command == "gestureTrail") {
     Q_EMIT gestureTrail(args == "start");
+  } else if (command == "gestureMatched") {
+    Q_EMIT gestureMatched(args);
+  } else if (command == "hotkeyMatched") {
+    Q_EMIT hotkeyMatched(args);
   }
 }
 

@@ -24,6 +24,7 @@
 #include "common/Settings.h"
 #include "common/UrlConstants.h"
 #include "common/VersionInfo.h"
+#include "common/Hotkey.h"
 #include "gui/Messages.h"
 #include "gui/TlsUtility.h"
 #include "gui/core/CoreProcess.h"
@@ -256,6 +257,8 @@ void MainWindow::connectSlots()
   connect(&m_coreProcess, &CoreProcess::connectionStateChanged, this, &MainWindow::coreConnectionStateChanged);
   connect(&m_coreProcess, &CoreProcess::secureSocket, this, &MainWindow::secureSocket);
   connect(&m_coreProcess, &CoreProcess::gestureTrail, this, &MainWindow::handleGestureTrail);
+  connect(&m_coreProcess, &CoreProcess::gestureMatched, this, &MainWindow::showMatchedNote);
+  connect(&m_coreProcess, &CoreProcess::hotkeyMatched, this, &MainWindow::showMatchedNote);
   connect(
       &m_coreProcess, &CoreProcess::daemonIpcClientConnectionFailed, this, &MainWindow::daemonIpcClientConnectionFailed
   );
@@ -1116,6 +1119,19 @@ void MainWindow::handleGestureTrail(bool active)
     m_gestureTrail->start();
   } else {
     m_gestureTrail->stop();
+  }
+}
+
+void MainWindow::showMatchedNote(const QString &ruleText)
+{
+  // A gesture or keyboard hotkey fired: show its note (if any).
+  const ServerConfig &config = serverConfig();
+  const auto &hotkeys = config.hotkeys();
+  const auto it = std::ranges::find_if(hotkeys, [&ruleText](const Hotkey &hotkey) {
+    return hotkey.text() == ruleText;
+  });
+  if (it != hotkeys.end()) {
+    m_gestureTrail->showNote(it->note());
   }
 }
 

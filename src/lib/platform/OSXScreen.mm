@@ -1418,6 +1418,7 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
       LOG_DEBUG("gesture recognised button=%d direction=%d+%d", gestureButton, static_cast<int>(seg1),
                 static_cast<int>(seg2));
       fireGesture(id);
+      ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
       return GestureOutcome::Fired;
     }
   }
@@ -1426,6 +1427,7 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
     if (const uint32_t id = findGesture(gestureButton, seg1); id != 0) {
       LOG_DEBUG("gesture recognised button=%d direction=%d", gestureButton, static_cast<int>(seg1));
       fireGesture(id);
+      ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
       return GestureOutcome::Fired;
     }
   }
@@ -1458,6 +1460,30 @@ uint32_t OSXScreen::findGesture(ButtonID button, GestureDirection direction, Ges
     }
   }
   return 0;
+}
+
+QString OSXScreen::gestureBindingText(uint32_t id) const
+{
+  static const char *s_buttonNames[] = {"none", "left", "middle", "right"};
+
+  static const char *s_directionNames[] = {
+      "left",     "right",     "up",         "down",       "upleft",
+      "upright",  "downleft",  "downright",  "scrollup",   "scrolldown",
+      "scrollleft", "scrollright", "none",
+  };
+
+  const auto it = m_gestures.find(id);
+  if (it == m_gestures.end()) {
+    return {};
+  }
+  const auto &binding = it->second;
+
+  QString direction = s_directionNames[static_cast<int>(binding.m_direction)];
+  if (binding.m_direction2 != GestureDirection::None) {
+    direction += QStringLiteral("+") + s_directionNames[static_cast<int>(binding.m_direction2)];
+  }
+
+  return QStringLiteral("gesture(%1,%2)").arg(s_buttonNames[static_cast<int>(binding.m_button)], direction);
 }
 
 bool OSXScreen::handleGestureScroll(int32_t xDelta, int32_t yDelta)
@@ -1493,6 +1519,7 @@ bool OSXScreen::handleGestureScroll(int32_t xDelta, int32_t yDelta)
       "scroll gesture recognised button=%d direction=%d", m_activeGestureButton, static_cast<int>(direction)
   );
   fireGesture(id);
+  ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
   return true;
 }
 

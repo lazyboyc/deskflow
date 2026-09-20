@@ -27,6 +27,8 @@ public:
   void start();
   //! Hide the overlay and discard the trail.
   void stop();
+  //! Show the matched hotkey's note for a second where the trail ended.
+  void showNote(const QString &note);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -37,5 +39,10 @@ private:
 
   QTimer *m_pollTimer = nullptr;
   QPolygonF m_points;
+  QPointF m_lastPos;
+  //! Note toast state: drawn instead of the trail for one second
+  bool m_showingNote = false;
+  QString m_note;
+  QPointF m_notePos;
   static constexpr int kMaxPoints = 4096;
 };

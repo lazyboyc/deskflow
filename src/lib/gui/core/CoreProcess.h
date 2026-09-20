@@ -95,6 +95,8 @@ Q_SIGNALS:
   void peerFingerprint(const QString &fingerprint);
   void missingKeyboardLayouts(const QString &layouts);
   void gestureTrail(bool active);
+  void gestureMatched(const QString &gestureText);
+  void hotkeyMatched(const QString &ruleText);
 
 private Q_SLOTS:
   void onProcessFinished(int exitCode, QProcess::ExitStatus);

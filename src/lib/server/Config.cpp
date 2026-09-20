@@ -722,7 +722,10 @@ Config::parseCondition(const ConfigReadContext &s, const std::string &name, cons
 
     IPlatformScreen::KeyInfo *keyInfo = s.parseKeystroke(args[0]);
 
-    return new InputFilter::KeystrokeCondition(m_events, keyInfo);
+    // Keep the rule text so the GUI can match its hotkey and show the note.
+    const auto ruleText = QStringLiteral("keystroke(%1)").arg(QString::fromStdString(args[0]));
+
+    return new InputFilter::KeystrokeCondition(m_events, keyInfo, ruleText);
   }
 
   if (name == "mousebutton") {

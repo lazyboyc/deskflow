@@ -10,6 +10,7 @@
 #include "base/EventQueue.h"
 #include "base/Log.h"
 #include "deskflow/KeyMap.h"
+#include "deskflow/ipc/CoreIpc.h"
 #include "server/PrimaryClient.h"
 #include "server/Server.h"
 
@@ -31,9 +32,10 @@ void InputFilter::Condition::disablePrimary(PrimaryClient *)
   // do nothing
 }
 
-InputFilter::KeystrokeCondition::KeystrokeCondition(IEventQueue *events, IPlatformScreen::KeyInfo *info)
+InputFilter::KeystrokeCondition::KeystrokeCondition(IEventQueue *events, IPlatformScreen::KeyInfo *info, const QString &ruleText)
     : m_key(info->m_key),
       m_mask(info->m_mask),
+      m_ruleText(ruleText),
       m_events(events)
 {
   free(info);
@@ -84,6 +86,11 @@ InputFilter::FilterStatus InputFilter::KeystrokeCondition::match(const Event &ev
   // check if it's our hotkey
   if (const auto *kinfo = static_cast<IPlatformScreen::HotKeyInfo *>(event.getData()); kinfo->m_id != m_id) {
     return NoMatch;
+  }
+
+  // Tell the GUI which hotkey rule fired so it can flash the hotkey's note.
+  if (status == Activate && !m_ruleText.isEmpty()) {
+    ipcSendToClient(QStringLiteral("hotkeyMatched"), m_ruleText);
   }
 
   return status;

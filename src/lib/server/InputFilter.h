@@ -13,6 +13,7 @@
 #include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
 
+#include <QString>
 #include <set>
 
 class PrimaryClient;
@@ -51,7 +52,7 @@ public:
   class KeystrokeCondition : public Condition
   {
   public:
-    KeystrokeCondition(IEventQueue *events, IPlatformScreen::KeyInfo *);
+    KeystrokeCondition(IEventQueue *events, IPlatformScreen::KeyInfo *, const QString &ruleText = {});
     KeystrokeCondition(IEventQueue *events, KeyID key, KeyModifierMask mask);
     ~KeystrokeCondition() override = default;
 
@@ -69,6 +70,9 @@ public:
     uint32_t m_id = 0;
     KeyID m_key;
     KeyModifierMask m_mask;
+    //! The rule text (e.g. "keystroke(Super+c)") so the GUI can show the
+    //! hotkey's note when this condition triggers
+    QString m_ruleText;
     IEventQueue *m_events;
   };
 

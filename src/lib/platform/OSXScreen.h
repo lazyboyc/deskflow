@@ -18,6 +18,8 @@
 #include <mach/mach_interface.h>
 #include <mach/mach_port.h>
 
+#include <QString>
+
 #include <atomic>
 #include <bitset>
 #include <map>
@@ -198,6 +200,8 @@ private:
   bool hasGestureOnButton(ButtonID button) const;
   uint32_t findGesture(ButtonID button, GestureDirection direction, GestureDirection direction2 = GestureDirection::None) const;
   void fireGesture(uint32_t id);
+  //! The gesture(...) rule text of a registered gesture, for the GUI
+  QString gestureBindingText(uint32_t id) const;
   bool beginGesture(ButtonID button);
   void resetGesture();
   void accumulateGesture(int32_t dx, int32_t dy);
