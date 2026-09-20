@@ -119,7 +119,7 @@ void ServerConfigDialog::addHotkey()
   HotkeyDialog dlg(this, hotkey);
   if (dlg.exec() == QDialog::Accepted) {
     serverConfig().hotkeys().append(hotkey);
-    ui->listHotkeys->addItem(hotkey.text());
+    ui->listHotkeys->addItem(hotkey.displayText());
     setButtonBoxEnabledButtons();
   }
 }
@@ -135,7 +135,7 @@ void ServerConfigDialog::editHotkey()
   Hotkey &hotkey = serverConfig().hotkeys()[row];
   HotkeyDialog dlg(this, hotkey);
   if (dlg.exec() == QDialog::Accepted) {
-    ui->listHotkeys->currentItem()->setText(hotkey.text());
+    ui->listHotkeys->currentItem()->setText(hotkey.displayText());
     setButtonBoxEnabledButtons();
   }
 }
@@ -405,7 +405,7 @@ void ServerConfigDialog::loadFromConfig()
 
   ui->listHotkeys->clear();
   for (const Hotkey &hotkey : std::as_const(serverConfig().hotkeys()))
-    ui->listHotkeys->addItem(hotkey.text());
+    ui->listHotkeys->addItem(hotkey.displayText());
 
   ui->screenSetupView->setModel(&m_screenSetupModel);
 

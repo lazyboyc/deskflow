@@ -73,6 +73,24 @@
     </layout>
    </item>
    <item>
+    <layout class="QHBoxLayout" name="noteRow">
+     <item>
+      <widget class="QLabel" name="labelNote">
+       <property name="text">
+        <string>Note:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="m_pEditNote">
+       <property name="placeholderText">
+        <string>A name or purpose for this hotkey (optional)</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="QLabel" name="labelGestureHint">
      <property name="text">
       <string>Drag directions fire on release; scroll directions fire while the button is held. Pick a second direction for a two-segment gesture (e.g. up, then down).</string>

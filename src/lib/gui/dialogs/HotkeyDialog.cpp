@@ -65,6 +65,8 @@ HotkeyDialog::HotkeyDialog(QWidget *parent, Hotkey &hotkey)
   }
   updateSecondSegment();
 
+  ui->m_pEditNote->setText(m_Hotkey.note());
+
   connect(ui->m_pTriggerType, &QComboBox::currentIndexChanged, this, &HotkeyDialog::toggleTrigger);
   toggleTrigger();
 }
@@ -89,6 +91,9 @@ void HotkeyDialog::toggleTrigger()
 
 void HotkeyDialog::accept()
 {
+  // The note applies to both trigger types.
+  hotkey().setNote(ui->m_pEditNote->text().trimmed());
+
   if (ui->m_pTriggerType->currentData().toInt() == static_cast<int>(Hotkey::Trigger::Gesture)) {
     // setGesture() also switches the trigger, and ignores names the server
     // would not accept.

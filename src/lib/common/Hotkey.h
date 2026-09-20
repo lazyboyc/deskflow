@@ -65,6 +65,21 @@ public:
   //! server would reject.
   void setGesture(const QString &button, const QString &direction);
 
+  //! Free-form user note (a name or purpose); shown in the GUI only
+  const QString &note() const
+  {
+    return m_note;
+  }
+  void setNote(const QString &note)
+  {
+    m_note = note;
+  }
+  //! The trigger text plus the note, for display in the hotkey list
+  QString displayText() const
+  {
+    return m_note.isEmpty() ? text() : QStringLiteral("%1 — %2").arg(text(), m_note);
+  }
+
   //! Names accepted by the server for the button part of gesture(...)
   static const QStringList &gestureButtonNames();
   //! Names accepted by the server for the direction part of gesture(...)
@@ -91,6 +106,7 @@ private:
   KeySequence m_keySequence = {};
   QString m_gestureButton = QStringLiteral("right");
   QString m_gestureDirection = QStringLiteral("left");
+  QString m_note;
   ActionList m_actions = {};
   inline static const QString kSectionActions = QStringLiteral("actions");
   inline static const QString kMousebutton = QStringLiteral("mousebutton(%1)");
@@ -99,6 +115,7 @@ private:
   inline static const QString kTrigger = QStringLiteral("trigger");
   inline static const QString kGestureButton = QStringLiteral("gestureButton");
   inline static const QString kGestureDirection = QStringLiteral("gestureDirection");
+  inline static const QString kNote = QStringLiteral("note");
 };
 
 using HotkeyList = QList<Hotkey>;

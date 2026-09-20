@@ -99,6 +99,7 @@ void Hotkey::loadSettings(QSettings &settings)
   m_trigger = static_cast<Trigger>(settings.value(kTrigger, static_cast<int>(Trigger::KeySequence)).toInt());
   m_gestureButton = settings.value(kGestureButton, m_gestureButton).toString();
   m_gestureDirection = settings.value(kGestureDirection, m_gestureDirection).toString();
+  m_note = settings.value(kNote, m_note).toString();
 
   m_actions.clear();
   int num = settings.beginReadArray(kSectionActions);
@@ -119,6 +120,11 @@ void Hotkey::saveSettings(QSettings &settings) const
   settings.setValue(kTrigger, static_cast<int>(m_trigger));
   settings.setValue(kGestureButton, m_gestureButton);
   settings.setValue(kGestureDirection, m_gestureDirection);
+  if (!m_note.isEmpty()) {
+    settings.setValue(kNote, m_note);
+  } else {
+    settings.remove(kNote);
+  }
 
   settings.beginWriteArray(kSectionActions);
   for (int i = 0; i < m_actions.size(); i++) {
@@ -131,7 +137,7 @@ void Hotkey::saveSettings(QSettings &settings) const
 bool Hotkey::operator==(const Hotkey &hk) const
 {
   return m_trigger == hk.trigger() && m_keySequence == hk.keySequence() && m_gestureButton == hk.gestureButton() &&
-         m_gestureDirection == hk.gestureDirection() && m_actions == hk.actions();
+         m_gestureDirection == hk.gestureDirection() && m_note == hk.note() && m_actions == hk.actions();
 }
 
 QTextStream &operator<<(QTextStream &outStream, const Hotkey &hotkey)
