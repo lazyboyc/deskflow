@@ -120,6 +120,8 @@ void ServerConfigDialog::addHotkey()
   if (dlg.exec() == QDialog::Accepted) {
     serverConfig().hotkeys().append(hotkey);
     ui->listHotkeys->addItem(hotkey.displayText());
+    // Select the freshly created hotkey so its actions show right away.
+    ui->listHotkeys->setCurrentRow(ui->listHotkeys->count() - 1);
     setButtonBoxEnabledButtons();
   }
 }
