@@ -102,7 +102,7 @@ void GestureTrailOverlay::paintEvent(QPaintEvent *event)
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing);
 
-  QPen pen(QColor(255, 59, 48, 170)); // translucent red
+  QPen pen(QColor(0, 122, 255, 170)); // translucent blue
   pen.setWidthF(3.0);
   pen.setCapStyle(Qt::RoundCap);
   pen.setJoinStyle(Qt::RoundJoin);
@@ -111,6 +111,6 @@ void GestureTrailOverlay::paintEvent(QPaintEvent *event)
 
   // Mark the current head of the trail.
   painter.setPen(Qt::NoPen);
-  painter.setBrush(QColor(255, 59, 48, 220));
+  painter.setBrush(QColor(0, 122, 255, 220));
   painter.drawEllipse(m_points.last(), 4.0, 4.0);
 }
