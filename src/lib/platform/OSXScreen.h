@@ -192,9 +192,10 @@ private:
   //! What became of a press on a gesture button
   enum class GestureOutcome
   {
-    None,  //!< the button has no gestures bound
-    Click, //!< the press was held back but the user only clicked
-    Fired  //!< a gesture was recognized
+    None,      //!< the button has no gestures bound
+    Click,     //!< the press was held back but the user only clicked
+    Fired,     //!< a gesture was recognized
+    Swallowed  //!< a stroke was made but no binding matched; deliver nothing
   };
 
   bool hasGestureOnButton(ButtonID button) const;

@@ -1118,8 +1118,10 @@ bool OSXScreen::onMouseButton(bool pressed, uint16_t macButton)
 
   switch (finishGesture(button)) {
   case GestureOutcome::Fired:
-    // The drag was a gesture. The press was held back, so the release must not
-    // reach the active screen either.
+  case GestureOutcome::Swallowed:
+    // The drag was a gesture (or an unmatched stroke). The press was held
+    // back, so neither a replayed click nor a lone release may reach the
+    // active screen.
     return true;
 
   case GestureOutcome::Click:
@@ -1412,9 +1414,10 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
     return GestureOutcome::Fired;
   }
 
-  // A two-segment binding is tried first so that, say, up+down does not get
-  // shadowed by a plain up binding; if no two-segment binding matches, a
-  // one-segment binding for the first segment still fires.
+  // A two-segment stroke is a gesture of its own: it fires a two-segment
+  // binding when one matches, but it must not fall back to the first segment's
+  // single-segment binding — an L like downright then downleft is not a plain
+  // downright. Single-segment bindings only apply to straight strokes.
   if (seg2 != GestureDirection::None) {
     if (const uint32_t id = findGesture(gestureButton, seg1, seg2); id != 0) {
       LOG_DEBUG("gesture recognised button=%d direction=%d+%d", gestureButton, static_cast<int>(seg1),
@@ -1423,6 +1426,9 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
       ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
       return GestureOutcome::Fired;
     }
+    LOG_DEBUG("no two-segment binding for button=%d direction=%d+%d; swallowing the stroke", gestureButton,
+              static_cast<int>(seg1), static_cast<int>(seg2));
+    return GestureOutcome::Swallowed;
   }
 
   if (seg1 != GestureDirection::None) {
@@ -1432,14 +1438,15 @@ OSXScreen::GestureOutcome OSXScreen::finishGesture(ButtonID button)
       ipcSendToClient(QStringLiteral("gestureMatched"), gestureBindingText(id));
       return GestureOutcome::Fired;
     }
+
+    // The stroke left the press point but matches no binding: it is a gesture
+    // attempt, so deliver nothing — neither an action nor a click replay.
+    LOG_VERBOSE("no gesture bound to button=%d segment1=%d; swallowing the stroke", gestureButton,
+                static_cast<int>(seg1));
+    return GestureOutcome::Swallowed;
   }
 
-  // The pointer travelled far enough to be a gesture, but no binding matches the
-  // direction, so fall back to delivering the click. A plain button drag cannot
-  // be replayed and is therefore lost, which is the price of holding the press
-  // until the intent is known.
-  LOG_VERBOSE("no gesture bound to button=%d segment1=%d segment2=%d", gestureButton, static_cast<int>(seg1),
-              static_cast<int>(seg2));
+  // The pointer never moved past the gesture threshold: it was a plain click.
   return GestureOutcome::Click;
 }
 
