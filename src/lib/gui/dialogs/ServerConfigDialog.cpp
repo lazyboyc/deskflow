@@ -121,7 +121,9 @@ void ServerConfigDialog::addHotkey()
     serverConfig().hotkeys().append(hotkey);
     ui->listHotkeys->addItem(hotkey.displayText());
     // Select the freshly created hotkey so its actions show right away.
-    ui->listHotkeys->setCurrentRow(ui->listHotkeys->count() - 1);
+    ui->listHotkeys->setCurrentItem(ui->listHotkeys->item(ui->listHotkeys->count() - 1));
+    ui->listHotkeys->currentItem()->setSelected(true);
+    syncHotkeySelectionUi();
     setButtonBoxEnabledButtons();
   }
 }
@@ -152,22 +154,45 @@ void ServerConfigDialog::removeHotkey()
 
   serverConfig().hotkeys().removeAt(row);
   ui->listActions->clear();
-  delete ui->listHotkeys->item(row);
+  delete ui->listHotkeys->takeItem(row);
+
+  // Select the row that took the removed one's place (or the last row), then
+  // sync the buttons and the action panel directly from the selection state —
+  // the selectionChanged signal is not reliably emitted for programmatic
+  // selection changes.
+  const int count = ui->listHotkeys->count();
+  if (count > 0) {
+    ui->listHotkeys->setCurrentItem(ui->listHotkeys->item(qMin(row, count - 1)));
+    ui->listHotkeys->currentItem()->setSelected(true);
+  }
+  syncHotkeySelectionUi();
   setButtonBoxEnabledButtons();
 }
 
-void ServerConfigDialog::listHotkeysSelectionChanged(const QItemSelection &selected, const QItemSelection &)
+void ServerConfigDialog::listHotkeysSelectionChanged(const QItemSelection &, const QItemSelection &)
 {
-  bool itemsSelected = !selected.isEmpty();
+  // The first signal argument is only the newly-selected delta, which is empty
+  // for pure deselections even while other items remain selected; always
+  // decide from the model's actual selection instead.
+  const bool itemsSelected = ui->listHotkeys->selectionModel()->hasSelection();
+  syncHotkeySelectionUi();
+}
+
+void ServerConfigDialog::syncHotkeySelectionUi()
+{
+  const bool itemsSelected = ui->listHotkeys->currentItem() != nullptr && ui->listHotkeys->currentItem()->isSelected();
   ui->btnEditHotkey->setEnabled(itemsSelected);
   ui->btnRemoveHotkey->setEnabled(itemsSelected);
   ui->btnNewAction->setEnabled(itemsSelected);
 
-  if (itemsSelected && !serverConfig().hotkeys().isEmpty()) {
-    ui->listActions->clear();
-    const Hotkey &hotkey = serverConfig().hotkeys().at(selected.indexes().first().row());
-    for (const Action &action : hotkey.actions())
-      ui->listActions->addItem(action.text());
+  ui->listActions->clear();
+  if (itemsSelected) {
+    const int hotkeyRow = ui->listHotkeys->currentRow();
+    if (hotkeyRow >= 0 && hotkeyRow < serverConfig().hotkeys().size()) {
+      const Hotkey &hotkey = serverConfig().hotkeys().at(hotkeyRow);
+      for (const Action &action : hotkey.actions())
+        ui->listActions->addItem(action.text());
+    }
   }
 }
 
@@ -228,7 +253,16 @@ void ServerConfigDialog::removeAction()
   }
 
   hotkey.removeActionAt(actionRow);
-  delete ui->listActions->currentItem();
+  delete ui->listActions->takeItem(actionRow);
+
+  // Same as removeHotkey(): re-select the neighbouring row and sync the
+  // buttons directly from the selection state.
+  const int actionCount = ui->listActions->count();
+  if (actionCount > 0) {
+    ui->listActions->setCurrentItem(ui->listActions->item(qMin(actionRow, actionCount - 1)));
+    ui->listActions->currentItem()->setSelected(true);
+  }
+  syncActionSelectionUi();
   setButtonBoxEnabledButtons();
 }
 
@@ -285,9 +319,15 @@ void ServerConfigDialog::toggleProtocol()
   setButtonBoxEnabledButtons();
 }
 
-void ServerConfigDialog::listActionsSelectionChanged(const QItemSelection &selected, const QItemSelection &)
+void ServerConfigDialog::listActionsSelectionChanged(const QItemSelection &, const QItemSelection &)
 {
-  bool enabled = !selected.isEmpty();
+  // Same delta-vs-total caveat as listHotkeysSelectionChanged().
+  syncActionSelectionUi();
+}
+
+void ServerConfigDialog::syncActionSelectionUi()
+{
+  const bool enabled = ui->listActions->currentItem() != nullptr && ui->listActions->currentItem()->isSelected();
   ui->btnEditAction->setEnabled(enabled);
   ui->btnRemoveAction->setEnabled(enabled);
 }

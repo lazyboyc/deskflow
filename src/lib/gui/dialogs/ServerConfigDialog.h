@@ -43,11 +43,17 @@ protected:
   void editHotkey();
   void removeHotkey();
   void listHotkeysSelectionChanged(const QItemSelection &selected, [[maybe_unused]] const QItemSelection &deselected);
+  //! Sync the hotkey buttons and the action panel from the actual list
+  //! selection; do not rely on selectionChanged, which only carries the
+  //! selection delta and is not emitted for every programmatic change.
+  void syncHotkeySelectionUi();
 
   void addAction();
   void editAction();
   void removeAction();
   void listActionsSelectionChanged(const QItemSelection &selected, [[maybe_unused]] const QItemSelection &deselected);
+  //! Sync the action buttons from the actual list selection.
+  void syncActionSelectionUi();
 
   void toggleSwitchDoubleTap(bool enable);
   void setSwitchDoubleTap(int within);
