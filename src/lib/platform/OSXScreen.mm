@@ -36,6 +36,7 @@
 #include "deskflow/ipc/CoreIpc.h"
 
 #include <AppKit/NSEvent.h>
+#include <AppKit/NSWorkspace.h>
 #include <AvailabilityMacros.h>
 #include <IOKit/hidsystem/event_status_driver.h>
 #include <dispatch/dispatch.h>
@@ -172,6 +173,16 @@ OSXScreen::OSXScreen(IEventQueue *events, bool isPrimary, bool enableLangSync)
 
     CGDisplayRemoveReconfigurationCallback(displayReconfigurationCallback, this);
 
+    NSNotificationCenter *sessionCenter = [[NSWorkspace sharedWorkspace] notificationCenter];
+    if (m_sessionResignObserver != nullptr) {
+      [sessionCenter removeObserver:(__bridge id)m_sessionResignObserver];
+      m_sessionResignObserver = nullptr;
+    }
+    if (m_sessionActiveObserver != nullptr) {
+      [sessionCenter removeObserver:(__bridge id)m_sessionActiveObserver];
+      m_sessionActiveObserver = nullptr;
+    }
+
     delete m_keyState;
     delete m_screensaver;
     throw;
@@ -182,6 +193,32 @@ OSXScreen::OSXScreen(IEventQueue *events, bool isPrimary, bool enableLangSync)
     handleSystemEvent(e);
   });
 
+  // Watch session lock/unlock and fast user switching: macOS restores the
+  // cursor's visibility and mouse-coupling across these transitions, which
+  // desyncs the state left() established while the pointer is on a client
+  // (ghost cursor moving in sync with the client's, clicks only on the
+  // client). Re-assert the capture right away and for a few seconds, since
+  // macOS may restore its cursor state after the notification.
+  auto sessionChangeBlock = ^(NSNotification *note) {
+    LOG_DEBUG("session change notification: %s", note.name.UTF8String);
+    m_reassertCursorUntil = Arch::time() + 3.0;
+    reassertCursorCapture();
+  };
+  NSNotificationCenter *sessionCenter = [[NSWorkspace sharedWorkspace] notificationCenter];
+  // The notification center retains each token until removeObserver, so the
+  // raw pointers below stay valid for the lifetime of this object even though
+  // addObserverForName returns an autoreleased token (this file is not ARC).
+  m_sessionResignObserver = (__bridge void *)[sessionCenter
+      addObserverForName:NSWorkspaceSessionDidResignActiveNotification
+                  object:nil
+                   queue:nil
+              usingBlock:sessionChangeBlock];
+  m_sessionActiveObserver = (__bridge void *)[sessionCenter
+      addObserverForName:NSWorkspaceSessionDidBecomeActiveNotification
+                  object:nil
+                   queue:nil
+              usingBlock:sessionChangeBlock];
+
   // install the platform event queue
   m_events->adoptBuffer(new OSXEventQueueBuffer(m_events));
 }
@@ -189,6 +226,16 @@ OSXScreen::OSXScreen(IEventQueue *events, bool isPrimary, bool enableLangSync)
 OSXScreen::~OSXScreen()
 {
   disable();
+
+  NSNotificationCenter *sessionCenter = [[NSWorkspace sharedWorkspace] notificationCenter];
+  if (m_sessionResignObserver != nullptr) {
+    [sessionCenter removeObserver:(__bridge id)m_sessionResignObserver];
+    m_sessionResignObserver = nullptr;
+  }
+  if (m_sessionActiveObserver != nullptr) {
+    [sessionCenter removeObserver:(__bridge id)m_sessionActiveObserver];
+    m_sessionActiveObserver = nullptr;
+  }
 
   m_events->adoptBuffer(nullptr);
   m_events->removeHandler(EventTypes::System, m_events->getSystemTarget());
@@ -693,6 +740,30 @@ void OSXScreen::hideCursor()
   m_cursorHidden = true;
 }
 
+void OSXScreen::reassertCursorCapture()
+{
+  // Only meaningful while the pointer is not on this screen: that is when the
+  // cursor is hidden (and, on a primary, the mouse dissociated), and that is
+  // exactly the state macOS resets when the screen locks, unlocks, or the
+  // session switches. Applies to secondaries too: their constructor hides the
+  // cursor and macOS can make it visible again across a lock/unlock.
+  const bool cursorActuallyVisible = CGCursorIsVisible();
+  LOG_DEBUG(
+      "reassertCursorCapture: primary=%d onScreen=%d cursorHidden=%d cursorVisible=%d", m_isPrimary,
+      static_cast<int>(m_isOnScreen), m_cursorHidden, cursorActuallyVisible
+  );
+  if (m_isOnScreen || !m_cursorHidden) {
+    return;
+  }
+
+  LOG_DEBUG("session change while on another screen: re-asserting hidden/captured cursor");
+  hideCursor();
+  if (m_isPrimary) {
+    // must follow hideCursor(), which re-associates (see leave())
+    CGAssociateMouseAndMouseCursorPosition(false);
+  }
+}
+
 void OSXScreen::enable()
 {
   // watch the clipboard
@@ -705,6 +776,20 @@ void OSXScreen::enable()
     // keep the scroll-wheel scaling cache fresh so the event-tap thread never
     // reads CFPreferences synchronously (which can stall the tap).
     refreshScrollScaling();
+    // shortly after a session lock/unlock, keep re-asserting the cursor
+    // capture: macOS may restore its own cursor state after the notification.
+    if (m_reassertCursorUntil > Arch::time()) {
+      reassertCursorCapture();
+    }
+    // Safety net independent of notifications: while the pointer is on a
+    // client the cursor must be invisible. If macOS made it visible again
+    // (screen lock, unlock, or anything else), capture it once more.
+    // CGCursorIsVisible is deprecated but the only way to query this; a false
+    // positive merely re-hides an already hidden cursor.
+    if (!m_isOnScreen && m_cursorHidden && CGCursorIsVisible()) {
+      LOG_DEBUG("cursor visible while on a client; re-asserting capture");
+      reassertCursorCapture();
+    }
   });
 
   // populate the scroll-wheel scaling cache before any scroll event can arrive

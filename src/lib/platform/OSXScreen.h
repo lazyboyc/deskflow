@@ -140,6 +140,9 @@ private:
   // Added here to allow the carbon cursor hack to be called.
   void showCursor();
   void hideCursor();
+  //! Re-hide and re-capture the local cursor after macOS reset it (screen
+  //! lock, unlock, fast user switching) while the pointer is on a client.
+  void reassertCursorCapture();
 
   // map deskflow mouse button to mac buttons
   ButtonID mapDeskflowButtonToMac(uint16_t) const;
@@ -312,6 +315,15 @@ private:
   std::vector<MouseButtonEventMapType> MouseButtonEventMap;
 
   bool m_cursorHidden;
+
+  // session lock/unlock observers (NSWorkspace notification tokens); macOS
+  // restores the cursor's visibility and mouse-coupling on lock/unlock, which
+  // desyncs the leave() state while the pointer is on a client.
+  void *m_sessionActiveObserver = nullptr;
+  void *m_sessionResignObserver = nullptr;
+  //! Until this time (Arch clock) the 1s timer keeps re-asserting the cursor
+  //! capture, covering state macOS may restore after the unlock notification.
+  std::atomic<double> m_reassertCursorUntil{0.0};
 
   // keyboard stuff
   OSXKeyState *m_keyState;
