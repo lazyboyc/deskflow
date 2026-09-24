@@ -111,7 +111,10 @@ void forceAppActive()
 
 void macOSNativeHide()
 {
-  [NSApp hide:nil];
+  // Only switch the activation policy; do NOT call [NSApp hide:]. Hiding the
+  // whole application makes macOS un-hide it — restoring every window,
+  // including the main window, without focus — the next time the app shows
+  // any window (the gesture trail overlay does this on every button press).
   [[NSApplication sharedApplication] setActivationPolicy:NSApplicationActivationPolicyAccessory];
 }
 

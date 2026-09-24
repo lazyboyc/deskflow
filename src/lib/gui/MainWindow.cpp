@@ -1016,10 +1016,13 @@ void MainWindow::updateFingerprintButton()
 void MainWindow::hide()
 {
 #ifdef Q_OS_MACOS
+  // Switch to accessory policy (no Dock icon), but do NOT [NSApp hide:]:
+  // hiding the whole application makes macOS un-hide it — resurrecting this
+  // main window without focus — the next time the app shows any window, such
+  // as the gesture trail overlay on every gesture-button press.
   macOSNativeHide();
-#else
-  QMainWindow::hide();
 #endif
+  QMainWindow::hide();
   m_actionRestore->setVisible(true);
   m_actionMinimize->setVisible(false);
 }

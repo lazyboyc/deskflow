@@ -64,8 +64,14 @@ void GestureTrailOverlay::start()
   m_points.clear();
   m_lastPos = QCursor::pos();
   setGeometry(QGuiApplication::primaryScreen()->virtualGeometry());
-  show();
+
+  // The native window must already be a non-activating panel BEFORE show():
+  // showing a regular NSWindow activates the whole application first, and
+  // converting the style afterwards cannot undo that activation.
+  winId();
   applyNativeOverlayWindow();
+  show();
+  applyNativeOverlayWindow(); // Qt may reapply its own style mask during show
 #ifdef Q_OS_MACOS
   // Order the panel to the front without activating the application.
   [[reinterpret_cast<NSView *>(winId()) window] orderFrontRegardless];
@@ -100,6 +106,8 @@ void GestureTrailOverlay::showNote(const QString &note)
   m_showingNote = true;
   m_points.clear();
   setGeometry(QGuiApplication::primaryScreen()->virtualGeometry());
+  winId();
+  applyNativeOverlayWindow();
   show();
   applyNativeOverlayWindow();
 #ifdef Q_OS_MACOS
