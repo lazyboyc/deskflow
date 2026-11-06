@@ -183,6 +183,72 @@ void KeyMapTests::mapkey()
   QVERIFY(result == nullptr);
 }
 
+namespace
+{
+KeyMap::KeyItem modifierItem(KeyID id, KeyButton button)
+{
+  KeyMap::KeyItem item;
+  item.m_id = id;
+  item.m_group = 0;
+  item.m_button = button;
+  KeyMap::initModifierKey(item);
+  return item;
+}
+} // namespace
+
+void KeyMapTests::mapKey_commandWithShift_mapsLowercaseLetter()
+{
+  // A letter key is sensitive to Shift but does not require it: the unshifted
+  // glyph ('t') has required=0 / sensitive=Shift, while the shifted glyph ('T')
+  // is a separate KeyID with required=Shift. The GUI writes shortcuts with the
+  // unshifted character even when Shift is part of the combination, so
+  // "Shift+Super+t" must map through the shift-sensitive key.
+  KeyMap keyMap;
+  keyMap.addKeyEntry(modifierItem(kKeyShift_L, 0x38));
+  keyMap.addKeyEntry(modifierItem(kKeySuper_L, 0x37));
+
+  KeyMap::KeyItem letter;
+  letter.m_id = 't';
+  letter.m_group = 0;
+  letter.m_button = 0x11;
+  letter.m_required = 0;
+  letter.m_sensitive = KeyModifierShift;
+  keyMap.addKeyEntry(letter);
+  keyMap.finish();
+
+  KeyMap::Keystrokes strokes;
+  KeyMap::ModifierToKeys activeModifiers;
+  KeyModifierMask currentState = 0;
+  const auto *item = keyMap.mapKey(
+      strokes, 't', 0, activeModifiers, currentState, KeyModifierShift | KeyModifierSuper, false, "en"
+  );
+  QVERIFY(item != nullptr);
+}
+
+void KeyMapTests::mapKey_commandWithShift_mapsUppercaseLetter()
+{
+  KeyMap keyMap;
+  keyMap.addKeyEntry(modifierItem(kKeyShift_L, 0x38));
+  keyMap.addKeyEntry(modifierItem(kKeySuper_L, 0x37));
+
+  KeyMap::KeyItem letter;
+  letter.m_id = 'T';
+  letter.m_group = 0;
+  letter.m_button = 0x11;
+  letter.m_required = KeyModifierShift;
+  letter.m_sensitive = KeyModifierShift;
+  keyMap.addKeyEntry(letter);
+  keyMap.finish();
+
+  KeyMap::Keystrokes strokes;
+  KeyMap::ModifierToKeys activeModifiers;
+  KeyModifierMask currentState = 0;
+  const auto *item = keyMap.mapKey(
+      strokes, 'T', 0, activeModifiers, currentState, KeyModifierShift | KeyModifierSuper, false, "en"
+  );
+  QVERIFY(item != nullptr);
+}
+
 void KeyMapTests::parseModifiers_plusKey_keepsPlusAsKey()
 {
   std::string keystroke = "Control+Shift++";

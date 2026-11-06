@@ -504,8 +504,14 @@ const KeyMap::KeyItem *KeyMap::mapCommandKey(
       const auto &item = entry.back();
       KeyModifierMask desiredShiftMask = KeyModifierShift & desiredMask;
       KeyModifierMask requiredIgnoreShiftMask = item.m_required & ~KeyModifierShift;
-      if ((item.m_required & desiredShiftMask) == (item.m_sensitive & desiredShiftMask) &&
-          ((requiredIgnoreShiftMask & desiredMask) == requiredIgnoreShiftMask)) {
+      // A key that is sensitive to Shift produces its shifted KeyID while Shift
+      // is held, so it can also carry a shortcut whose combination includes
+      // Shift but names the unshifted character ("Shift+Super+t"). Without
+      // this, such a shortcut finds no key and is silently dropped; the GUI
+      // always writes the unshifted character, even when Shift was recorded.
+      const bool shiftMatches = (item.m_required & desiredShiftMask) == (item.m_sensitive & desiredShiftMask) ||
+                                (desiredShiftMask != 0 && (item.m_sensitive & KeyModifierShift) != 0);
+      if (shiftMatches && ((requiredIgnoreShiftMask & desiredMask) == requiredIgnoreShiftMask)) {
         LOG_VERBOSE("found key in group %d", effectiveGroup);
         keyItem = &item;
         break;
