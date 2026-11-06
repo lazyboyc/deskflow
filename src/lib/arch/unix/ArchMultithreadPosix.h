@@ -52,6 +52,15 @@ public:
 
   static ArchMultithreadPosix *getInstance();
 
+  //! Block the signals the signal thread waits for, on the calling thread.
+  /*!
+  Call this before creating any thread. A process-directed signal is delivered
+  to any thread that does not block it, and with the default disposition that
+  terminates the process instead of waking the signal thread. Every thread
+  created afterwards inherits the blocked mask.
+  */
+  static void blockSignalThreadSignals();
+
   //@}
 
   // IArchMultithread overrides

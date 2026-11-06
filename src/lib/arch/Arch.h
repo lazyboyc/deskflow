@@ -95,6 +95,18 @@ public:
    */
   static double time();
 
+  /**
+   * @brief Block the signals the arch signal thread waits for, on the calling thread.
+   *
+   * Call this before creating any thread. A process-directed signal is delivered
+   * to any thread that does not block it, and taking the default action
+   * terminates the process instead of waking the signal thread (which is what
+   * reloads the configuration on SIGHUP, for example).
+   *
+   * No-op on platforms without the POSIX signal thread.
+   */
+  static void blockSignalThreadSignals();
+
 private:
   static Arch *s_instance;
 };

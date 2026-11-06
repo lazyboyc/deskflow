@@ -489,6 +489,13 @@ void ArchMultithreadPosix::raiseSignal(ThreadSignal signal)
   }
 }
 
+void ArchMultithreadPosix::blockSignalThreadSignals()
+{
+  sigset_t sigset;
+  setSignalSet(&sigset);
+  pthread_sigmask(SIG_BLOCK, &sigset, nullptr);
+}
+
 void ArchMultithreadPosix::startSignalHandler()
 {
   // set signal mask.  the main thread blocks these signals and

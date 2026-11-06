@@ -32,6 +32,11 @@ void handleError(const char *message = "Unrecognized error.");
 
 int main(int argc, char **argv)
 {
+  // Block the signals the arch signal thread waits for before Qt creates any
+  // thread, so a process-directed signal reaches that thread instead of
+  // terminating the process with the default disposition.
+  Arch::blockSignalThreadSignals();
+
 #if defined(Q_OS_WIN)
   ArchMiscWindows::guardRuntimeVersion();
 

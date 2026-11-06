@@ -55,3 +55,10 @@ double Arch::time()
   auto uSecSinceEpoch = std::chrono::duration_cast<std::chrono::microseconds>(sinceEpoch).count();
   return double(uSecSinceEpoch / 1000000);
 }
+
+void Arch::blockSignalThreadSignals()
+{
+#if !defined(Q_OS_WIN)
+  ARCH_MULTITHREAD::blockSignalThreadSignals();
+#endif
+}

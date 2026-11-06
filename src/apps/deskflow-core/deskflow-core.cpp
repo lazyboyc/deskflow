@@ -69,6 +69,12 @@ App *createApp(const CoreArgParser &parser, EventQueue &events, const QString &p
 
 int main(int argc, char **argv)
 {
+  // Block the signals the arch signal thread waits for before Qt creates any
+  // thread. The mask is inherited, and a process-directed signal delivered to a
+  // thread that does not block it terminates the process instead of reaching
+  // the signal thread (SIGHUP reloads the server configuration).
+  Arch::blockSignalThreadSignals();
+
 #if defined(Q_OS_WIN)
   ArchMiscWindows::setInstanceWin32(GetModuleHandle(nullptr));
 #endif
