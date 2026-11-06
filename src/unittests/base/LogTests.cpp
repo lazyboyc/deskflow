@@ -6,6 +6,13 @@
  */
 
 #include "LogTests.h"
+
+#include "base/LogOutputters.h"
+
+#include <QFile>
+#include <QFileInfo>
+#include <QTemporaryDir>
+
 #include <clocale>
 #include <iostream>
 #include <sstream>
@@ -118,6 +125,27 @@ void LogTests::printErrWithFileAndLine()
   std::cerr.rdbuf(old);
 
   QCOMPARE(string, "ERROR: test message test file:123");
+}
+
+void LogTests::fileLogOutputter_rotatesInsteadOfDeleting()
+{
+  QTemporaryDir dir;
+  QVERIFY(dir.isValid());
+
+  const auto logFile = dir.filePath(QStringLiteral("test.log"));
+  const auto rotatedFile = QStringLiteral("%1.1").arg(logFile);
+
+  FileLogOutputter outputter(logFile);
+
+  // A little over the 1 MiB limit, one line at a time.
+  const QString line(1024, QLatin1Char('x'));
+  for (int i = 0; i < 1100; ++i) {
+    QVERIFY(outputter.write(LogLevel::Level::Info, line));
+  }
+
+  QVERIFY2(QFile::exists(rotatedFile), "the previous log must be kept as .1, not deleted");
+  QVERIFY(QFile::exists(logFile));
+  QVERIFY(QFileInfo(rotatedFile).size() > 1024 * 1024);
 }
 
 QTEST_MAIN(LogTests)

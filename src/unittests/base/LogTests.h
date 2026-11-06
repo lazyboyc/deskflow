@@ -21,6 +21,7 @@ private Q_SLOTS:
   void printLevelToHigh();
   void printInfoWithFileAndLine();
   void printErrWithFileAndLine();
+  void fileLogOutputter_rotatesInsteadOfDeleting();
 
 private:
   Log m_log;

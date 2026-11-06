@@ -137,8 +137,10 @@ bool FileLogOutputter::write(LogLevel::Level, const QString &message)
   file.close();
 
   if (file.size() > s_logFileSizeLimit) {
+    // Keep the previous log as "<name>.1". The current file must be renamed
+    // first; removing it would throw the log away instead of rotating it.
     const auto oldFile = QStringLiteral("%1.1").arg(m_fileName);
-    QFile::remove(m_fileName);
+    QFile::remove(oldFile);
     QFile::rename(m_fileName, oldFile);
   }
 
